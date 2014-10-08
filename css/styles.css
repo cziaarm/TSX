@@ -1,0 +1,203 @@
+#TSX_main {
+	display: none;
+}
+#auth_error_message {
+	color: #e22;
+	font-size: 0.8em;
+}
+/* Panels general */
+.column {
+    float: left;
+    margin: 0 1em 1em 0;
+    padding: 0.3em;
+}
+ 
+.column-header {
+    padding: 0.2em 0.3em;
+    margin-bottom: 0.5em;
+    position: relative;
+  }
+ 
+.column-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    margin-top: -8px;
+  }
+
+.column-content {
+   padding: 0.4em;
+}
+ 
+.column-placeholder {
+    border: 1px dotted black;
+    margin: 0 1em 1em 0;
+}
+
+/*************************/
+/* The panels */
+
+
+#control{
+	width: 100%;
+	margin: 0 0 1em 0;
+}
+
+#control-column{
+	width: 99%;
+}
+
+#data-column{
+	width: 21%;
+}
+
+#edit-column{
+	width: 33%;
+}
+
+#image-column{
+	width: 40%;
+	height: 100%;
+   	padding-bottom: 0;
+    padding: 0;
+}
+/*************************/
+/* Control panel */
+div#mode-control{
+	width: 40%;
+	float:left;
+}
+div#panel-control{
+	width: 20%;
+	float:left;
+}
+div#image-control{
+	display: none;
+	width: 30%;
+	float: right;
+}
+#zoom-in{
+ padding: 0 1px 3px 0;
+}
+#control .ui-button-text{
+	font-size: 60%;
+}
+
+#control .ui-buttonset .ui-button{
+	/*margin: 0;*/
+}
+/******************/
+/*Data panel */
+
+ul.grid {
+
+    -moz-column-count: 3;
+    -moz-column-gap: 1em;
+    -moz-padding-start: 5px;
+    -webkit-column-count: 3;
+    -webkit-column-gap: 1em;
+    -webkit-padding-start: 5px;
+    column-count: 3;
+    column-gap: 1em;
+    padding-start: 5px;
+    list-style-type: none !important;
+    margin: 0px;
+    padding: 0px;
+}
+
+ul.grid li{
+	margin: 0.1em 0.1em 0.1em 0.1em;
+}
+
+li.doc_ref {font-size: 0.5em}
+/**********************/
+
+
+/* Edit panel */
+div#edit-area {
+
+}
+div#edit-tools button {
+	font-size: 60%;
+	margin: 0px;
+}
+.tei-underline{
+	text-decoration: underline;
+}
+.tei-head{
+	font-weight: bold;
+}
+.tei-del{
+	text-decoration: line-through;
+}
+.tei-sic{
+	font-style: italic;
+}
+.tei-super{
+	vertical-align: super;
+}
+
+.tei-unclear{
+	color: purple;
+}
+.tei-gap{
+	color: red;
+}
+
+.page-region-start{
+	padding-top: 0.5em;
+}
+.page-region-end{
+	padding-bottom: 0.5em;
+}
+div#edit-view-switch {
+	width: 20%;
+	float: right;
+	font-size: 0.7em;
+	color: #ccc;
+	margin: 0.3em;
+}
+div#edit-area{
+	clear: both;
+}
+
+/**************************/
+
+/* Image panel */
+#image-canvas{
+	width: 100%;
+	height: 100%;
+}
+
+/*
+
+#ac_container {
+    width: 400px;
+    height: 50px;
+    position: relative;
+}
+
+#suggestions, 
+#text-area {
+    border-style: dashed; 
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 30px;
+    resize: none; 
+    font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+}
+
+
+#text-area {
+	background-color: transparent;
+	z-index: 10;
+}
+
+#suggestions {
+	background-color: white;
+    color: #AAAAFF;
+	z-index: 1;
+}
