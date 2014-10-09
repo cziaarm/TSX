@@ -14,7 +14,7 @@ function TSX(config) {
 	this.local = false;
 	this.logged_in = false;
 	this.mode = "plain";
-	this.edit_view = "TEI";
+	this.edit_view = "encoded";
 	this.current_doc;
 	this.docs;
 	this.metrics = {};
@@ -30,7 +30,19 @@ function TSX(config) {
 		//session is local no need for auth etc
 		if(!window.location.protocol.match(/^http/)){
 			self.local = true;
-			$("#TSX_main").show();
+			var local_docs = self.data_server+"index.html";
+			$.getJSON(  local_docs  )
+				.done(function( json ) {
+					self.docs = json;
+					$("#connection_message").remove();
+					self.afterConnection();
+//					self.render_data_list();
+				  })
+				  .fail(function( jqxhr, textStatus, error ) {
+					var err = textStatus + ", " + error;
+					console.log( "Request Failed: " + err );
+				});
+
 		}else{
 			//check the remote connection	
 			$.getJSON(  self.data_server+self.data_list, {JSESSIONID: self.sessionId} )
@@ -253,8 +265,10 @@ function TSX(config) {
 			}
 
 			$(".doc_ref").on("click", function(){
-				var image = self.data_server+$(this).attr("id").replace(/JB\./, "") + ".jpg";
+				self.current_page = $(this).attr("id").replace(/JB\./, "");
+				var image = self.data_server+self.current_page + ".jpg";
 				self.load_image(image);
+				self.load_transcript();
 			});
 		});
 	}
@@ -390,40 +404,57 @@ function TSX(config) {
 				console.log(self.report_line());
 			}
 		});
-		$("#edit-view-switch").toggle(function(){
-				self.edit_view = "TEI";
-				console.log(self.edit_view);
-		}, function(){
-				self.edit_view = "pretty";
-				console.log(self.edit_view);
+		$("#edit-view-switch span#edit-view-"+self.edit_view).css({color: "#000"});
+		$("#edit-view-switch span").on("click", function(){
+				if($(this).attr("id").match(/encoded$/)){
+					$("#edit-view-switch span#edit-view-encoded").css({color: "#000"});
+					$("#edit-view-switch span#edit-view-visual").css({color: "#ccc"});
+					self.edit_view = "encoded";
+				}else{
+					$("#edit-view-switch span#edit-view-encoded").css({color: "#ccc"});
+					$("#edit-view-switch span#edit-view-visual").css({color: "#000"});
+					self.edit_view = "visual";
+					self.render_visual();
+			}
 		});
-		$(".tei").on("click",function(){
-			var from = cm.getCursor("from");
-			var to = cm.getCursor("to");			
-			cm.markText(from, to, {className: "tei-"+$(this).attr("id")});
+		
+/*		$(".tei").on("click",function(){
+			var from = self.cm.getCursor("from");
+			var to = self.cm.getCursor("to");	
+			console.log("marking text with class tei-"+$(this).attr("id"));
+			self.cm.markText(from, to, {className: "tei-"+$(this).attr("id")});
 		});
+		*/
 		$(".tei-insert").on("click",function(){			
-			cm.replaceSelection("<"+$(this).attr("id")+"/>");
+			self.cm.replaceSelection("<"+$(this).attr("id")+"/>");
 		});
 		$(".tei-wrap").on("click",function(){
-			var text = cm.getSelection();
-			cm.replaceSelection("<"+$(this).attr("id")+">"+text+"</"+$(this).attr("id")+">");
+			var text = self.cm.getSelection();
+			self.cm.replaceSelection("<"+$(this).attr("id")+">"+text+"</"+$(this).attr("id")+">");
 		});
 		$(".page-format").on("click",function(){
-			var text = cm.getSelection();
-			var from = cm.getCursor("from");
-			var to = cm.getCursor("to");
+			var text = self.cm.getSelection();
+			var from = self.cm.getCursor("from");
+			var to = self.cm.getCursor("to");
 			//in the <pre> (or do we build/amend the "page" data structure as we go along)
-			cm.addLineClass(from.line, "text", "page-"+$(this).attr("id")+"-start");
-			cm.addLineClass(to.line, "text", "page-"+$(this).attr("id")+"-end");
+			self.cm.addLineClass(from.line, "text", "page-"+$(this).attr("id")+"-start");
+			self.cm.addLineClass(to.line, "text", "page-"+$(this).attr("id")+"-end");
 			//also in the wrapping element for visual effect
-			cm.addLineClass(from.line, "wrap", "page-"+$(this).attr("id")+"-start");
-			cm.addLineClass(to.line, "wrap", "page-"+$(this).attr("id")+"-end");
+			self.cm.addLineClass(from.line, "wrap", "page-"+$(this).attr("id")+"-start");
+			self.cm.addLineClass(to.line, "wrap", "page-"+$(this).attr("id")+"-end");
 		});
+	}
+	this.render_visual = function(){
+		console.log("rendering visual");
+		//TODO Switch TEI tags for spans with tei-class
+	}
+	this.render_encoded =- function(){
+		console.log("rendering encoded");
+		//TODO Switch spans with tei-class for TEI tags
 	}
 	this.report_line = function(){
 		var cursor = self.cm.getCursor();
-		if(self.ts_data[cursor.line] != undefined){
+		if(self.ts_data != undefined && self.ts_data[cursor.line] != undefined){
 			console.log(self.ts_data[cursor.line].poly);
 		}
 		return cursor.line;
@@ -491,25 +522,41 @@ function TSX(config) {
 				//$("#image-container").empty().append(canvas);
 	}
 	this.load_transcript = function() {
-		var transcripts = self.docs.pageList.pages[self.current_page].tsList.transcripts;
-/*		var url = self.data_server+"docs/"+self.current_doc+"/"+self.current_page+"/text";
-		console.log("Loading transcript: "+url);
-		$.get(url, {JSESSIONID : self.sessionId}  )
-			.done(function( doc ) {
-				self.current_transcript = doc;
-				self.render_transcript();
-			 })
-			  .fail(function( jqxhr, textStatus, error ) {
-				var err = textStatus + ", " + error;
-				console.log( "Request Failed: " + err );
-			});
-*/
-		if(transcripts.length == 1){
-			self.handle_transcript(transcripts[0]);
-		}else if(!transcripts.length){
-			console.log("No transcript available");
+		if(self.local){
+			var url = self.data_server+"page/"+self.current_page+".xml";
+			console.log("Loading transcript: "+url);
+			$.get(url)
+				.done(function( doc ) {
+					console.log("HERE");
+					self.current_transcript = doc;
+					self.render_transcript();
+				 })
+				  .fail(function( jqxhr, textStatus, error ) {
+					var err = textStatus + ", " + error;
+					console.log( "Request Failed: " + err );
+				});
+				
 		}else{
-			self.handle_transcript_list(transcripts);
+			var transcripts = self.docs.pageList.pages[self.current_page].tsList.transcripts;
+	/*		var url = self.data_server+"docs/"+self.current_doc+"/"+self.current_page+"/text";
+			console.log("Loading transcript: "+url);
+			$.get(url, {JSESSIONID : self.sessionId}  )
+				.done(function( doc ) {
+					self.current_transcript = doc;
+					self.render_transcript();
+				 })
+				  .fail(function( jqxhr, textStatus, error ) {
+					var err = textStatus + ", " + error;
+					console.log( "Request Failed: " + err );
+				});
+	*/
+			if(transcripts.length == 1){
+				self.handle_transcript(transcripts[0]);
+			}else if(!transcripts.length){
+				console.log("No transcript available");
+			}else{
+				self.handle_transcript_list(transcripts);
+			}
 		}
 	}	
 	this.render_transcript = function (){
