@@ -79,9 +79,13 @@ div#image-control{
 #zoom-in{
  padding: 0 1px 3px 0;
 }
-#control .ui-button-text{
-	font-size: 60%;
+#control-container {
+	font-size: 70%;
 }
+#control-container .ui-button-text{
+	font-size: 90%;
+}
+
 
 #control .ui-buttonset .ui-button{
 	/*margin: 0;*/
@@ -121,26 +125,26 @@ div#edit-tools button {
 	font-size: 60%;
 	margin: 0px;
 }
-.tei-underline{
+.tei-underline-enabled{
 	text-decoration: underline;
 }
-.tei-head{
+.tei-head-enabled{
 	font-weight: bold;
 }
-.tei-del{
+.tei-del-enabled{
 	text-decoration: line-through;
 }
-.tei-sic{
+.tei-sic-enabled{
 	font-style: italic;
 }
-.tei-super{
+.tei-super-enabled{
 	vertical-align: super;
 }
 
-.tei-unclear{
+.tei-unclear-enabled{
 	color: purple;
 }
-.tei-gap{
+.tei-gap-enabled{
 	color: red;
 }
 
@@ -151,7 +155,7 @@ div#edit-tools button {
 	padding-bottom: 0.5em;
 }
 div#edit-view-switch {
-	width: 20%;
+	width: 30%;
 	float: right;
 	font-size: 0.7em;
 	color: #ccc;
