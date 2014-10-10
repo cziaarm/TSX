@@ -409,11 +409,10 @@ function TSX(config) {
 				if($(this).attr("id").match(/encoded$/)){
 					$("#edit-view-switch span#edit-view-encoded").css({color: "#000"});
 					$("#edit-view-switch span#edit-view-visual").css({color: "#ccc"});
-					self.edit_view = "encoded";
+					self.render_encoded();
 				}else{
 					$("#edit-view-switch span#edit-view-encoded").css({color: "#ccc"});
 					$("#edit-view-switch span#edit-view-visual").css({color: "#000"});
-					self.edit_view = "visual";
 					self.render_visual();
 			}
 		});
@@ -430,7 +429,17 @@ function TSX(config) {
 		});
 		$(".tei-wrap").on("click",function(){
 			var text = self.cm.getSelection();
-			self.cm.replaceSelection("<"+$(this).attr("id")+">"+text+"</"+$(this).attr("id")+">");
+			var from = self.cm.getCursor("from");
+			var to = self.cm.getCursor("to");
+			console.log(to);
+			//TODO properly represent these
+			var tei_tags = {o: "<"+$(this).attr("id")+">", c: "</"+$(this).attr("id")+">"}; 
+			self.cm.replaceSelection(tei_tags.o+text+tei_tags.c);
+			//offset the text to mark according to the tei_tags...
+			//to.ch += offset;
+			to.ch += (tei_tags.o.length+tei_tags.c.length);
+			console.log("new from : "+from.ch);
+			self.cm.markText(from, to, {className: "tei-visual tei-"+$(this).attr("id")+"-disabled"});
 		});
 		$(".page-format").on("click",function(){
 			var text = self.cm.getSelection();
@@ -445,11 +454,46 @@ function TSX(config) {
 		});
 	}
 	this.render_visual = function(){
+		if(self.edit_view === "visual"){
+			console.log("already visual");
+			return;
+		}
+		self.edit_view = "visual";
 		console.log("rendering visual");
+		
+		$(".tei-visual").each(function(){
+			
+			var new_class = $(this).attr("class").replace(/-disabled/,"-enabled");
+			var new_content = $(this).text().replace(/(<[^>]+>)/g,"");
+			console.log("new_content: "+new_content);
+			console.log(RegExp.$1);
+			$(this).attr("class", new_class);
+			
+			$(this).html(new_content); //using html to reinsert strips out end tags... ha!
+		});
+		
 		//TODO Switch TEI tags for spans with tei-class
 	}
-	this.render_encoded =- function(){
-		console.log("rendering encoded");
+	this.render_encoded = function(){
+		if(self.edit_view === "encoded"){
+			console.log("already encoded");
+			return;
+		}
+		$(".tei-visual").each(function(){
+			
+			var new_class = $(this).attr("class").replace(/(.+\s(.+))-enabled/,RegExp.$1+"-disabled");
+			var new_content = $(this).text();
+			var tei_tag = RegExp.$2;
+			console.log("new_content: "+new_content);
+			console.log("tei_tag: "+tei_tag);
+			$(this).attr("class", new_class);
+			
+			$(this).html(new_content); //using html to reinsert strips out end tags... ha!
+		});
+
+		self.edit_view = "encoded";
+		console.log("rendering encoded");					
+
 		//TODO Switch spans with tei-class for TEI tags
 	}
 	this.report_line = function(){
@@ -464,6 +508,9 @@ function TSX(config) {
 		$("#mode").on("change", function(){
 			console.log("I am in "+$(this).val()+" mode");
 			self.mode = $(this).val();
+			if(self.mode != "plain" && self.current_page != undefined) self.load_transcript();
+			else self.unload_transcript();
+
 			$(this).closest( ".column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
 		});
 	}
@@ -521,7 +568,11 @@ function TSX(config) {
 				//var canvas = $('<canvas style="background: url('+image+') no-repeat; background-size: '+i_width+'px" width="'+i_width+'" height="600"></canvas>');
 				//$("#image-container").empty().append(canvas);
 	}
+	this.unload_transcript = function() {
+		self.cm.replaceRange(self.ts_data[i].text+"\n", {line:line, ch: 0});
+	}
 	this.load_transcript = function() {
+		if(self.mode === "plain") return false;
 		if(self.local){
 			var url = self.data_server+"page/"+self.current_page+".xml";
 			console.log("Loading transcript: "+url);
@@ -538,18 +589,6 @@ function TSX(config) {
 				
 		}else{
 			var transcripts = self.docs.pageList.pages[self.current_page].tsList.transcripts;
-	/*		var url = self.data_server+"docs/"+self.current_doc+"/"+self.current_page+"/text";
-			console.log("Loading transcript: "+url);
-			$.get(url, {JSESSIONID : self.sessionId}  )
-				.done(function( doc ) {
-					self.current_transcript = doc;
-					self.render_transcript();
-				 })
-				  .fail(function( jqxhr, textStatus, error ) {
-					var err = textStatus + ", " + error;
-					console.log( "Request Failed: " + err );
-				});
-	*/
 			if(transcripts.length == 1){
 				self.handle_transcript(transcripts[0]);
 			}else if(!transcripts.length){
