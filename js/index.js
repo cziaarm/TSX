@@ -33,21 +33,25 @@ function TSX(config) {
 			$("#TSX_main").show();
 		}else{
 			//check the remote connection	
-			$.getJSON(  self.data_server+self.data_list, {JSESSIONID: self.sessionId} )
-				.done(function(data, textStatus, jqxhr){
-					self.logged_in = true;
-					self.docs = data;
-					self.afterConnection();
-				}).fail(function(jqxhr,textStatus,error){
-					if(error === 'Unauthorized'){
-						self.credentials();
-					}else{
-						console.log("Connection failure: "+error);
-						alert("Could not connect to data server: "+self.data_server);
-					}
-				}).always(function(){
-					$("#connection_message").remove();
-				});
+			if(self.sessionId != undefined){
+				$.getJSON(  self.data_server+self.data_list, {JSESSIONID: self.sessionId} )
+					.done(function(data, textStatus, jqxhr){
+						self.logged_in = true;
+						self.docs = data;
+						self.afterConnection();
+					}).fail(function(jqxhr,textStatus,error){
+						if(error === 'Unauthorized'){
+							self.credentials();
+						}else{
+							console.log("Connection failure: "+error);
+							alert("Could not connect to data server: "+self.data_server);
+						}
+					}).always(function(){
+						$("#connection_message").remove();
+					});
+			}else{
+				self.credentials();
+			}
 		}
 	}
 	//credentials: dialog for getting (ans setting) credentials
@@ -83,10 +87,13 @@ function TSX(config) {
 	}
 	//authenticate: authenticate user credentials against data_server and set cookie
 	this.authenticate = function(){
-//		var auth_url = self.data_server+"auth/login_debug";
-		var auth_url = self.data_server+"auth/login";
+		var auth_url = self.data_server+"auth/login_debug";
+		console.log("Logging into Innsbruck with: "+auth_url+" and {user: "+$("#email").val()+", pw: "+$("#password").val()+"}");
+
+//		var auth_url = self.data_server+"auth/login";
 		data = {user: $("#email").val(), pw: $("#password").val()};
-		var jqxhr = $.post( auth_url, data, function(d) {
+		var jqxhr = $.get( auth_url, data, function(d) {
+			console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
 			self.sessionId = $(d).find("trpUserLogin sessionId").html();
 			$.cookie("TSX_session", self.sessionId);
 		//	dialog.dialog( "close" );
