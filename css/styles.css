@@ -119,7 +119,7 @@ li.doc_ref {font-size: 0.5em}
 
 /* Edit panel */
 div#edit-area {
-
+	height: 100%;
 }
 div#edit-tools button {
 	font-size: 60%;
@@ -163,6 +163,12 @@ div#edit-view-switch {
 }
 div#edit-area{
 	clear: both;
+}
+
+/* code mirror styles */
+
+.CodeMirror {
+	height: 100%;
 }
 
 /**************************/
