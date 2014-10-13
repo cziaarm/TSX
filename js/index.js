@@ -100,12 +100,12 @@ function TSX(config) {
 	//authenticate: authenticate user credentials against data_server and set cookie
 	this.authenticate = function(){
 		var auth_url = self.data_server+"auth/login_debug";
-		console.log("Logging into Innsbruck with: "+auth_url+" and {user: "+$("#email").val()+", pw: "+$("#password").val()+"}");
+	//	console.log("Logging into Innsbruck with: "+auth_url+" and {user: "+$("#email").val()+", pw: "+$("#password").val()+"}");
 
 //		var auth_url = self.data_server+"auth/login";
 		data = {user: $("#email").val(), pw: $("#password").val()};
 		var jqxhr = $.get( auth_url, data, function(d) {
-			console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
+//			console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
 			self.sessionId = $(d).find("trpUserLogin sessionId").html();
 			$.cookie("TSX_session", self.sessionId);
 		//	dialog.dialog( "close" );
@@ -275,7 +275,6 @@ function TSX(config) {
 				self.current_page = $(this).attr("id").replace(/JB\./, "");
 				var image = self.data_server+self.current_page + ".jpg";
 				self.load_image(image);
-				self.load_transcript();
 			});
 		});
 	}
@@ -329,7 +328,7 @@ function TSX(config) {
 			$(".doc_ref").on("click", function(){
 				self.current_page = $(this).attr("data-pageInd");
 				self.load_image($(this).attr("rel"));
-				self.load_transcript();
+//				self.load_transcript();
 
 			});
 		});
@@ -372,10 +371,9 @@ function TSX(config) {
 
 		$("#data-column, #image-column").resizable();
 		//TODO: refresh cm on resize
-		$("#edit-column").resizable({alsoResize: "#edit-area #CodeMirror-scroll"});
+		$("#edit-column").resizable({alsoResize: "#edit-area .CodeMirror"});
 		
 		$( ".column-toggle" ).click(function() {
-			console.log("toggle");
 			var icon = $( this );
 			icon.toggleClass( "ui-icon-minusthick ui-icon-plusthick" );
 			icon.closest( ".column" ).find( ".column-content" ).toggle();
@@ -438,14 +436,14 @@ function TSX(config) {
 			var text = self.cm.getSelection();
 			var from = self.cm.getCursor("from");
 			var to = self.cm.getCursor("to");
-			console.log(to);
+	//		console.log(to);
 			//TODO properly represent these
 			var tei_tags = {o: "<"+$(this).attr("id")+">", c: "</"+$(this).attr("id")+">"}; 
 			self.cm.replaceSelection(tei_tags.o+text+tei_tags.c);
 			//offset the text to mark according to the tei_tags...
 			//to.ch += offset;
 			to.ch += (tei_tags.o.length+tei_tags.c.length);
-			console.log("new from : "+from.ch);
+		//	console.log("new from : "+from.ch);
 			self.cm.markText(from, to, {className: "tei-visual tei-"+$(this).attr("id")+"-disabled"});
 		});
 		$(".page-format").on("click",function(){
@@ -462,7 +460,6 @@ function TSX(config) {
 	}
 	this.render_visual = function(){
 		if(self.edit_view === "visual"){
-			console.log("already visual");
 			return;
 		}
 		self.edit_view = "visual";
@@ -504,16 +501,55 @@ function TSX(config) {
 		//TODO Switch spans with tei-class for TEI tags
 	}
 	this.report_line = function(){
+		var prev_line = self.current_line_num;
+
 		var cursor = self.cm.getCursor();
 		if(self.ts_data != undefined && self.ts_data[cursor.line] != undefined){
-			console.log(self.ts_data[cursor.line].poly);
+			//console.log(self.ts_data[cursor.line].poly);
+			self.current_line = self.ts_data[cursor.line];
 		}
-		return cursor.line;
+		self.current_line_num = cursor.line;
+		if(cursor.line != prev_line){
+			//self.draw_line_poly();
+			self.pan_to_line();
+		}
+
+		//return cursor.line;
+	}
+	this.pan_to_line = function(){
+		if(self.current_line != undefined){
+			$("#image-canvas").panzoom("pan", 0 - self.current_line.rec.x.min, 0 - self.current_line.rec.y.min);
+		}
+	}
+	
+	this.draw_line_poly = function(){
+		if(self.current_line.points != undefined){
+			var c2 = document.getElementById('image-canvas').getContext('2d');
+			c2.fillStyle = '#f00';
+			c2.beginPath();
+			c2.moveTo(self.current_line.rec.x.min*self.ratio, self.current_line.rec.y.min*self.ratio);
+			c2.lineTo(self.current_line.rec.x.max/2, self.current_line.rec.y.min*self.ratio);
+			c2.lineTo(self.current_line.rec.x.max/2, self.current_line.rec.y.max*self.ratio);
+			c2.lineTo(self.current_line.rec.x.min*self.ratio, self.current_line.rec.y.max*self.ratio);
+			c2.closePath();
+			c2.fill();
+
+			/*		var p = self.current_line.points;
+			console.log(p[0].x+", "+p[0].y);
+			
+			c2.moveTo(0-p[0].x,0-p[0].y);
+			for(var i in p){
+				c2.lineTo(0-p[i].x, 0-p[i].y);
+			}
+			c2.closePath();
+			c2.fill();
+		*/			
+		}
 	}
 	this.init_mode_handling = function (){
 		$( "#control-column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
 		$("#mode").on("change", function(){
-			console.log("I am in "+$(this).val()+" mode");
+	//		console.log("I am in "+$(this).val()+" mode");
 			self.mode = $(this).val();
 			if(self.mode != "plain" && self.current_page != undefined) self.load_transcript();
 			else self.unload_transcript();
@@ -537,17 +573,21 @@ function TSX(config) {
 				$(img).attr('src', image).load(function() {
 
 					$("#image-control").fadeIn();
-					var dw = $("#image-canvas").width();
-					console.log(img.width);
-					var ratio = dw/img.width;
-					var canvas_height = ratio*img.height;
+
+					self.canvas_width = $("#image-canvas").width();		
+		//			console.log(self.canvas_width+" / "+img.width);
+					self.ratio = self.canvas_width/img.width;
+					self.canvas_height = self.ratio*img.height;
+					
+					self.load_transcript();
  
    					$(this).remove(); // prevent memory leaks as @benweet suggested
 					$("#image-canvas").
 						clearCanvas().
-						css({background: 'url('+image+') no-repeat', 'background-size': '100%', height: canvas_height+"px"}).
+						css({background: 'url('+image+') no-repeat', 'background-size': '100%', height: self.canvas_height+"px"}).
 						panzoom({
 							minScale: 1,
+//							contain: "invert",
 							$zoomIn: $("#zoom-in").button(),
 							$zoomOut: $("#zoom-out").button(),
 							$zoomRange: $("#zoom-slider").slider(),
@@ -555,7 +595,7 @@ function TSX(config) {
 							animate: true,
 						}).
 						   parents("div").
-						   css("height", canvas_height+"px");
+						   css("height", self.canvas_height+"px");
 						    //mousewheel stuff is jerky with animate, but without animate it doesn't fix resolution
 						   /*.on('mousewheel.focal', function( e ) {
 								e.preventDefault();
@@ -585,7 +625,6 @@ function TSX(config) {
 			console.log("Loading transcript: "+url);
 			$.get(url)
 				.done(function( doc ) {
-					console.log("HERE");
 					self.current_transcript = doc;
 					self.render_transcript();
 				 })
@@ -609,27 +648,38 @@ function TSX(config) {
 		self.ts_data = [];
 		var line = 0;
 		$(self.current_transcript).find("TextLine").each(function(){
+
+			var points = Array();
+			var rec = {x: {max: 0, min: 1.7976931348623157E+10308}, y: {max: 0, min: 1.7976931348623157E+10308}};
+			$(this).find(" > Coords").each(function(){	
+				var coords = $(this).attr("points").split(/ /);
+				for(var i in coords){
+					var co = coords[i].split(/,/);
+					x_adj = co[0]*self.ratio;
+					y_adj = co[1]*self.ratio;
+					points.push({x:x_adj, y:y_adj});
+					if(x_adj>rec.x.max) rec.x.max = x_adj;
+					if(x_adj<rec.x.min) rec.x.min = x_adj;
+					if(y_adj>rec.y.max) rec.y.max = y_adj;
+					if(y_adj<rec.y.min) rec.y.min = y_adj;
+
+				}
+			});
 			self.ts_data[line] = {
 				text: $(this).find(" > TextEquiv > Unicode").html(), 
-				poly: $(this).find(" > Coords").attr("points")
+				poly: $(this).find(" > Coords").attr("points"),
+				id: $(this).attr("id"),
+				points: points,
+				rec: rec
 			};
 			line++;
 		});
 		for(var i in self.ts_data){
-			console.log(i);
 			self.cm.replaceRange(self.ts_data[i].text+"\n", {line:line, ch: 0});
 		}
-
-/*
-		$(self.current_transcript).find("TextLine > TextEquiv > Unicode").each(function(){
-			console.log(line);
-			self.cm.replaceRange($(this).html()+"\n", {line:line, ch: 0});
-			line++;
-		});
-*/
 	}
 	this.handle_transcript = function(transcript){
-		console.log(transcript);
+		//console.log(transcript);
 		var url = transcript.url;
 		console.log("Loading transcript: "+url);
 		$.get(url, {JSESSIONID : self.sessionId}  )
@@ -649,11 +699,12 @@ function TSX(config) {
 		}
 
 	}
+	/*
 	this.get_wglist = function (){
 		console.log("I will get the wglist from the "+this.data_server);
 		console.log($("#text-area"));
 	}
-
+*/
 	function ucfirst(str) {
 	  str += '';
 	  var f = str.charAt(0)
