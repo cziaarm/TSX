@@ -19,6 +19,7 @@ function TSX(config) {
 	this.docs;
 	this.metrics = {};
 	this.cm = undefined;
+	this.ts_data = [];
 	self = this;
 
 	//init: check connection to data server
@@ -388,25 +389,25 @@ function TSX(config) {
 		
 		//TODO pickup the cm event 
 		$("#edit-area").on("mousedown", function(e){
-			console.log(self.report_line());
+			self.report_line();
 		});
 		$("#edit-area").on("keydown", function(e){
 			//console.log("which: "+e.which);
 			//return
 			if(e.which === 13){
-				console.log(self.report_line());
+				self.report_line();
 			}
 			//up
 			if(e.which === 38){
-				console.log(self.report_line());
+				self.report_line();
 			}
 			//down
 			if(e.which === 40){
-				console.log(self.report_line());
+				self.report_line();
 			}
 			//delete
 			if(e.which === 8){
-				console.log(self.report_line());
+				self.report_line();
 			}
 		});
 		$("#edit-view-switch span#edit-view-"+self.edit_view).css({color: "#000"});
@@ -504,21 +505,32 @@ function TSX(config) {
 		var prev_line = self.current_line_num;
 
 		var cursor = self.cm.getCursor();
-		if(self.ts_data != undefined && self.ts_data[cursor.line] != undefined){
+		if(self.ts_data[self.current_page] != undefined && self.ts_data[self.current_page][cursor.line] != undefined){
 			//console.log(self.ts_data[cursor.line].poly);
-			self.current_line = self.ts_data[cursor.line];
+			self.current_line = self.ts_data[self.current_page][cursor.line];
 		}
 		self.current_line_num = cursor.line;
 		if(cursor.line != prev_line){
 			//self.draw_line_poly();
-			self.pan_to_line();
+			if(self.mode != "plain"){
+				self.pan_to_line();
+				console.log(self.ts_data[self.current_page][cursor.line].text+" ("+self.ts_data[self.current_page][cursor.line].id+")");
+			}
 		}
 
 		//return cursor.line;
 	}
 	this.pan_to_line = function(){
+		
+		self.ratio =  $("#image-canvas").width()/self.image_width;	
+		console.log(self.ratio);
+		console.log(self.current_line.rec.x.min*self.ratio);
+		
 		if(self.current_line != undefined){
-			$("#image-canvas").panzoom("pan", 0 - self.current_line.rec.x.min, 0 - self.current_line.rec.y.min);
+			$("#image-canvas").panzoom("pan", 
+				0,//0 - (self.current_line.rec.x.min*self.ratio), 
+				0 - (self.current_line.rec.y.min*self.ratio)
+			);
 		}
 	}
 	
@@ -551,82 +563,90 @@ function TSX(config) {
 		$("#mode").on("change", function(){
 	//		console.log("I am in "+$(this).val()+" mode");
 			self.mode = $(this).val();
-			if(self.mode != "plain" && self.current_page != undefined) self.load_transcript();
-			else self.unload_transcript();
-
+			if(self.current_page != undefined && self.ts_data[self.current_page] === undefined){
+					self.load_transcript();
+			}else{
+				if(self.mode != "post")
+					self.unrender_transcript();
+				else
+					self.render_transcript();
+			}
 			$(this).closest( ".column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
 		});
 	}
 
 	this.load_image = function(image) {
-				$("#image-canvas").css({background: "none"}).drawText({
-				  fillStyle: '#333',
-				  strokeStyle: '#ccc',
-				  strokeWidth: 1,
-				  x: 150, y: 10,
-				  fontSize: 14,
-				  fontFamily: 'Verdana, sans-serif',
-				  text: "Please wait, fetching image..."});
+		$("#image-canvas").css({background: "none"}).drawText({
+			  fillStyle: '#333',
+			  strokeStyle: '#ccc',
+			  strokeWidth: 1,
+			  x: 150, y: 10,
+			  fontSize: 14,
+			  fontFamily: 'Verdana, sans-serif',
+			  text: "Please wait, fetching image..."});
+			
+			var img = new Image();
+
+			$(img).attr('src', image).load(function() {
+
+				$("#image-control").fadeIn();
+
+				self.canvas_width = $("#image-canvas").width();
+				self.image_width = img.width;
+				self.image_height = img.height;
+	//			console.log(self.canvas_width+" / "+img.width);
+				self.ratio = self.canvas_width/img.width;
+				self.canvas_height = self.ratio*img.height;
 				
-				var img = new Image();
+				self.load_transcript();
 
-				$(img).attr('src', image).load(function() {
-
-					$("#image-control").fadeIn();
-
-					self.canvas_width = $("#image-canvas").width();		
-		//			console.log(self.canvas_width+" / "+img.width);
-					self.ratio = self.canvas_width/img.width;
-					self.canvas_height = self.ratio*img.height;
-					
-					self.load_transcript();
- 
-   					$(this).remove(); // prevent memory leaks as @benweet suggested
-					$("#image-canvas").
-						clearCanvas().
-						css({background: 'url('+image+') no-repeat', 'background-size': '100%', height: self.canvas_height+"px"}).
-						panzoom({
-							minScale: 1,
+				$(this).remove(); // prevent memory leaks as @benweet suggested
+				$("#image-canvas").
+					clearCanvas().
+					css({background: 'url('+image+') no-repeat', 'background-size': '100%', height: self.canvas_height+"px"}).
+					panzoom({
+						minScale: 1,
 //							contain: "invert",
-							$zoomIn: $("#zoom-in").button(),
-							$zoomOut: $("#zoom-out").button(),
-							$zoomRange: $("#zoom-slider").slider(),
-							$reset: $("#reset").button(),
-							animate: true,
-						}).
-						   parents("div").
-						   css("height", self.canvas_height+"px");
-						    //mousewheel stuff is jerky with animate, but without animate it doesn't fix resolution
-						   /*.on('mousewheel.focal', function( e ) {
-								e.preventDefault();
-								var delta = e.delta || e.originalEvent.wheelDelta;
-								var zoomOut = delta ? delta < 0 : e.originalEvent.deltaY > 0;
-								$("#image-canvas").panzoom('zoom', zoomOut, {
-									increment: 0.05,
-									animate: true,
-									focal: e
-								});
-							});*/
-				});
-
-				
-				//Draw Polygons on canvas image
-				// http://www.jqueryscript.net/demo/jQuery-Plugin-For-Canvas-Image-Map-Area-Editor-Canvas-Area-Draw/
-				//var canvas = $('<canvas style="background: url('+image+') no-repeat; background-size: '+i_width+'px" width="'+i_width+'" height="600"></canvas>');
-				//$("#image-container").empty().append(canvas);
+						$zoomIn: $("#zoom-in").button(),
+						$zoomOut: $("#zoom-out").button(),
+						$zoomRange: $("#zoom-slider").slider(),
+						$reset: $("#reset").button(),
+						animate: true,
+					}).
+					   parents("div").
+					   css("height", self.canvas_height+"px");
+						//mousewheel stuff is jerky with animate, but without animate it doesn't fix resolution
+					   /*.on('mousewheel.focal', function( e ) {
+							e.preventDefault();
+							var delta = e.delta || e.originalEvent.wheelDelta;
+							var zoomOut = delta ? delta < 0 : e.originalEvent.deltaY > 0;
+							$("#image-canvas").panzoom('zoom', zoomOut, {
+								increment: 0.05,
+								animate: true,
+								focal: e
+							});
+						});*/
+			});
 	}
-	this.unload_transcript = function() {
-		self.cm.replaceRange(self.ts_data[i].text+"\n", {line:line, ch: 0});
+	//only un-renders it really
+	this.unrender_transcript = function() {
+		
+		for(var i =0; i<self.ts_data[self.current_page].length; i++){
+			//remove line or something would be better...? check cm docs when online
+			//console.log(self.cm.getLine(i).length);
+			self.cm.replaceRange("", {line:i, ch: 0},{line:i, ch: self.cm.getLine(i).length});
+		}
+
 	}
 	this.load_transcript = function() {
-		if(self.mode === "plain") return false;
+		
 		if(self.local){
 			var url = self.data_server+"page/"+self.current_page+".xml";
 			console.log("Loading transcript: "+url);
 			$.get(url)
 				.done(function( doc ) {
 					self.current_transcript = doc;
-					self.render_transcript();
+					self.load_transcript_data();
 				 })
 				  .fail(function( jqxhr, textStatus, error ) {
 					var err = textStatus + ", " + error;
@@ -643,12 +663,12 @@ function TSX(config) {
 				self.handle_transcript_list(transcripts);
 			}
 		}
-	}	
-	this.render_transcript = function (){
-		self.ts_data = [];
+	}
+	this.load_transcript_data = function(){
+		self.ts_data[self.current_page] = [];
 		var line = 0;
+		
 		$(self.current_transcript).find("TextLine").each(function(){
-
 			var points = Array();
 			var rec = {x: {max: 0, min: 1.7976931348623157E+10308}, y: {max: 0, min: 1.7976931348623157E+10308}};
 			$(this).find(" > Coords").each(function(){	
@@ -658,24 +678,36 @@ function TSX(config) {
 					x_adj = co[0]*self.ratio;
 					y_adj = co[1]*self.ratio;
 					points.push({x:x_adj, y:y_adj});
+					/* 
+					//adjust at point of use to check for resized canvas and ratio etc
 					if(x_adj>rec.x.max) rec.x.max = x_adj;
 					if(x_adj<rec.x.min) rec.x.min = x_adj;
 					if(y_adj>rec.y.max) rec.y.max = y_adj;
 					if(y_adj<rec.y.min) rec.y.min = y_adj;
-
+					*/
+					if(co[0]>rec.x.max) rec.x.max = co[0];
+					if(co[0]<rec.x.min) rec.x.min = co[0];
+					if(co[1]>rec.y.max) rec.y.max = co[1];
+					if(co[1]<rec.y.min) rec.y.min = co[1];
 				}
 			});
-			self.ts_data[line] = {
+			console.log("loading data for line: "+line);
+			self.ts_data[self.current_page][line] = {
 				text: $(this).find(" > TextEquiv > Unicode").html(), 
 				poly: $(this).find(" > Coords").attr("points"),
-				id: $(this).attr("id"),
+				id: "JB."+self.current_page+"."+$(this).parent("TextRegion").attr("id")+"."+$(this).attr("id"),
 				points: points,
 				rec: rec
 			};
-			line++;
+			line+=1;
 		});
-		for(var i in self.ts_data){
-			self.cm.replaceRange(self.ts_data[i].text+"\n", {line:line, ch: 0});
+		self.render_transcript();
+	}	
+	this.render_transcript = function (){
+		if(self.mode != "post") return false;
+		for(var i =0; i<self.ts_data[self.current_page].length; i++){
+		//	console.log("rendering line: "+i);
+			self.cm.replaceRange(self.ts_data[self.current_page][i].text+"\n", {line:i, ch: 0});
 		}
 	}
 	this.handle_transcript = function(transcript){
@@ -685,7 +717,7 @@ function TSX(config) {
 		$.get(url, {JSESSIONID : self.sessionId}  )
 			.done(function( doc ) {
 				self.current_transcript = doc;
-				self.render_transcript();
+				self.load_transcript_data();
 			 })
 			  .fail(function( jqxhr, textStatus, error ) {
 				var err = textStatus + ", " + error;
@@ -695,7 +727,7 @@ function TSX(config) {
 	}
 	this.handle_transcript_list = function(transcripts){
 		for(var i in transcripts){	
-			console.log(transcripts[i].url);	
+		//	console.log(transcripts[i].url);	
 		}
 
 	}
