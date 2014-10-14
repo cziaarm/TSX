@@ -606,7 +606,7 @@ function TSX(config) {
 		var $target = $('#target');
   
 		// Start app on clicking on the source image.
-		$('img#source').one('click', init);
+		$('img#source').one('click', connect_to_htr);
 
 		// Check HTR engine availability.
 		var socketPort = self.getAvailableSocket();
@@ -637,6 +637,29 @@ function TSX(config) {
 			console.log("Using engine at port", socketPort);
 		});
 	}
+	this.connect_to_htr = function(ev) {
+	    blockUI("Connecting...");
+	    
+	    // Setup the jQuery editable plugin.
+	    $target.editableItp({
+	      // We must indicate the source element to read data from.
+	      sourceSelector: ".source-text",
+	      // By now we are using the CasMaCat architecture, 
+	      // although in tS it will be pretty similar.
+	      // We use the "at" symbol to indicate custom socket.io resources.
+	      itpServerUrl:   "http://casmacat.prhlt.upv.es@" + socketPort + "/casmacat"
+	    })
+	    // Now we can attach some event listeners, this one is mandatory.
+	    .on('ready', isReady)
+	    // We can attach different callbacks to the same event, of course.
+	    .on('ready', function(ev, msg) {
+	      unblockUI();
+	    })
+	    .on('unready', function(ev, msg) {
+	      blockUI(msg);
+	    })
+	  };
+
 	this.load_image = function(image) {
 		$("#image-canvas").css({background: "none"}).drawText({
 			  fillStyle: '#333',
