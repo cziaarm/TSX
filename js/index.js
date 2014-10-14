@@ -555,7 +555,7 @@ function TSX(config) {
 			}
 			c2.closePath();
 			c2.fill();
-		*/			
+		*/		 		
 		}
 	}
 	this.init_mode_handling = function (){
@@ -563,18 +563,80 @@ function TSX(config) {
 		$("#mode").on("change", function(){
 	//		console.log("I am in "+$(this).val()+" mode");
 			self.mode = $(this).val();
-			if(self.current_page != undefined && self.ts_data[self.current_page] === undefined){
-					self.load_transcript();
-			}else{
-				if(self.mode != "post")
-					self.unrender_transcript();
-				else
-					self.render_transcript();
-			}
 			$(this).closest( ".column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
+	
+			if(self.current_page === undefined){
+					return false;
+			}
+			
+				//current_page  is defined, but the data is not loaded 
+				if(self.ts_data[self.current_page] === undefined){
+						self.load_transcript();
+				}
+				
+					switch(self.mode) {
+						case "plain":
+								self.unrender_transcript();
+							break;
+						case "post":
+								self.render_transcript();
+							break;
+						case "interactive":
+								self.unrender_transcript();
+								self.init_htr();
+							break;
+						default:
+							console.log("mode not defined");
+					}
+		
+		
+			
 		});
 	}
+	this.init_htr = function(){
+		console.log("INIT HTR");
 
+		require("jquery.editable.itp");
+  
+		// This lib may help to prevent unwanted asynchronous events.
+		require("jquery.blockUI");
+  
+		// This is the editable target text field, 
+		// which will enable interactive transcription facilities.
+		var $target = $('#target');
+  
+		// Start app on clicking on the source image.
+		$('img#source').one('click', init);
+
+		// Check HTR engine availability.
+		var socketPort = self.getAvailableSocket();
+
+		console.log(socketPort);
+	/*	var $target = $('#my-target-element');
+		var options = {
+			// We must indicate the source element to read data from. This element has as text the image patch ID.
+			sourceSelector: "#my-source-element",
+			// We use the "at" symbol to indicate custom socket.io resources.
+			itpServerUrl: "http://casmacat.prhlt.upv.es@" + socketPort + "/casmacat"
+	};
+   */
+		//$target.on('ready', isReady).editableItp(options);
+	}
+	this.getAvailableSocket = function(){
+		$.getJSON("http://casmacat.prhlt.upv.es/servers/status/poc?callback=?", function(portNums){
+			var howMany = Object.keys(portNums).length,
+			nTested = 0;
+			for (var n in portNums) {
+				if (portNums[n] === true) {
+					socketPort = n;
+					break;
+				}
+				nTested++;
+			}
+			if (nTested == howMany) alert("No HTR engines are available!");
+			console.log("Using engine at port", socketPort);
+		});
+	}
 	this.load_image = function(image) {
 		$("#image-canvas").css({background: "none"}).drawText({
 			  fillStyle: '#333',
@@ -630,8 +692,10 @@ function TSX(config) {
 	}
 	//only un-renders it really
 	this.unrender_transcript = function() {
-		
+		if(self.ts_data[self.current_page] === undefined)
+			return false;
 		for(var i =0; i<self.ts_data[self.current_page].length; i++){
+			if(self.cm.getLine(i) === undefined) continue;
 			//remove line or something would be better...? check cm docs when online
 			//console.log(self.cm.getLine(i).length);
 			self.cm.replaceRange("", {line:i, ch: 0},{line:i, ch: self.cm.getLine(i).length});
