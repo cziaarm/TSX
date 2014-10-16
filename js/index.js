@@ -20,6 +20,10 @@ function TSX(config) {
 	this.metrics = {};
 	this.cm = undefined;
 	this.ts_data = [];
+	//return, up, down, delete, pageup pagedown
+	this.line_change_keys = [13,38,40,8,33,34];
+	this.accept_keys = [9,32];
+	this.control_keys = [17, 18, 16, 20, 35, 36, 37, 39, 45, 46, 91, 93, 144, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 145, 19, 13,38,40,33,34 ]; //ignore these
 	self = this;
 
 	//init: check connection to data server
@@ -336,6 +340,10 @@ function TSX(config) {
 	}
 
 	this.init_panels = function(){
+		
+		if($("#mode").val() != undefined){
+			self.mode = $("#mode").val();
+		}
 		$("#control")
 			.addClass( "ui-widget ui-widget-content ui-helper-clearfix ui-corner-all" )
 			.resizable()
@@ -389,26 +397,43 @@ function TSX(config) {
 		
 		//TODO pickup the cm event 
 		$("#edit-area").on("mousedown", function(e){
-			self.report_line();
+			self.handle_move();
+		});
+		self.cm.on("keydown", function(cm, e){
+			//console.log(e.which);
+			//console.log($.inArray(e.which, self.accept_keys));
+			
+			if(self.mode === "interactive"){
+				if($.inArray(e.which, self.accept_keys)>=0){			
+						//tab
+						if(e.which === 9){
+							console.log("tabbing");
+							e.preventDefault(); //why preventDefault not working? because this is codeMirror! we listen for cm.on...
+							self.tab_complete();
+						}
+						//space
+						if(e.which === 32){
+							console.log("spacing");
+							//e.preventDefault(); //why preventDefault not working? because this is codeMirror! we listen for cm.on...
+							self.space_complete();
+						}			
+				}else if($.inArray(e.which, self.control_keys)<0){
+					if(e.which === 8){ //backspace rejects the edit not the suggestion
+						self.reject_edit();
+					}else{
+						self.reject_suggestion();
+					}
+				}
+			}
 		});
 		$("#edit-area").on("keydown", function(e){
-			//console.log("which: "+e.which);
-			//return
-			if(e.which === 13){
-				self.report_line();
+		
+			//call handle move for a designated set of "action keys" that will move the line
+			if($.inArray(e.which, self.line_change_keys)>=0){
+				self.handle_move(e);
 			}
-			//up
-			if(e.which === 38){
-				self.report_line();
-			}
-			//down
-			if(e.which === 40){
-				self.report_line();
-			}
-			//delete
-			if(e.which === 8){
-				self.report_line();
-			}
+			//tab complete
+
 		});
 		$("#edit-view-switch span#edit-view-"+self.edit_view).css({color: "#000"});
 		$("#edit-view-switch span").on("click", function(){
@@ -501,7 +526,8 @@ function TSX(config) {
 
 		//TODO Switch spans with tei-class for TEI tags
 	}
-	this.report_line = function(){
+	this.handle_move = function(e){
+		
 		var prev_line = self.current_line_num;
 
 		var cursor = self.cm.getCursor();
@@ -516,9 +542,12 @@ function TSX(config) {
 				self.pan_to_line();
 				console.log(self.ts_data[self.current_page][cursor.line].text+" ("+self.ts_data[self.current_page][cursor.line].id+")");
 			}
+			if(self.mode === "interactive"){
+				self.init_suggestions();
+			}
+		}else if(self.mode == "interactive"){
+			this.reposition_suggestions(cursor);
 		}
-
-		//return cursor.line;
 	}
 	this.pan_to_line = function(){
 		
@@ -539,6 +568,7 @@ function TSX(config) {
 			var c2 = document.getElementById('image-canvas').getContext('2d');
 			c2.fillStyle = '#f00';
 			c2.beginPath();
+			
 			c2.moveTo(self.current_line.rec.x.min*self.ratio, self.current_line.rec.y.min*self.ratio);
 			c2.lineTo(self.current_line.rec.x.max/2, self.current_line.rec.y.min*self.ratio);
 			c2.lineTo(self.current_line.rec.x.max/2, self.current_line.rec.y.max*self.ratio);
@@ -659,7 +689,121 @@ function TSX(config) {
 	      blockUI(msg);
 	    })
 	  };
-
+	  /************* predictive text ***********/
+	  //Works nicely as long as the cursor doesn't wander off and come back...
+	  // need a method to re-find where we are in the suggested line...
+	  // a comparison between e_words and s_words...
+	this.init_suggestions = function(){
+		self.s_line = self.ts_data[self.current_page][self.current_line_num].text;
+		self.s_words = self.s_line.split(/\s/);
+		self.e_words = self.cm.getLine(self.current_line_num).split(/\s/);
+		self.word = 0;
+		self.next_s_word = self.s_words[self.word];
+		self.old_s_word = "";
+		this.suggest_word();
+	}
+	this.suggest_word = function(){
+		if(self.next_s_word === undefined) return;
+		var cursor = self.cm.getCursor();
+		//if what is infront of us is not whitespace... don't suggest!
+		//console.log("line: "+self.current_line_num);
+		var infront = self.cm.getRange({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: null});
+		console.log("*"+infront+"*");
+		console.log(infront.length+" > 0 || "+infront.match(/^\s+$/g))
+		
+		if(infront != "" && infront.match(/^\s+$/g) == null){
+			return;
+		}
+		
+		console.log("NOThing or just WHITESPACE!");
+		
+//		if(infront.length > 0) return;
+		//if(infront.length == 0 || infront.length.match(/\s+/)>=0) return;
+						
+		self.cm.replaceRange(self.next_s_word+" ", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length});
+		self.cm.markText({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length}, {className: "suggestion"});
+		self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
+	}
+	this.reposition_suggestions = function(cursor){
+		console.log("s_line: "+self.s_line.substr(cursor.ch));
+/*		self.s_line = self.s_line.substr(cursor.ch);
+		self.s_words = self.s_line.split(/\s/);
+		self.word = 0;
+		self.next_s_word = self.s_words[self.word];
+*/
+	/*	self.e_line = self.cm.getLine(self.current_line_num);
+		self.e_words = self.e_line.split(/\s/);
+		console.log(self.e_words);
+		for(var i = 0; i<self.e_words.length; i++){
+			if(self.e_words[i] === "") continue;
+			console.log(self.s_words[i]+" == "+self.e_words[i]);
+		}
+		*/
+	}
+	this.tab_complete = function(){
+		if(self.next_s_word === undefined) return;
+		var cursor = self.cm.getCursor();
+		console.log("tabbed...");
+		self.cm.replaceRange(self.next_s_word+" ", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length});
+		self.word++;
+		self.next_s_word = self.s_words[self.word];
+		self.old_s_word = "";
+		self.suggest_word();
+	}
+	this.space_complete = function(){
+		if(self.next_s_word === undefined) return;
+		//var cursor = self.cm.getCursor();
+		console.log("spaced...");
+		//self.cm.replaceRange(self.next_s_word+" ", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length});
+		if(self.next_s_word.length == 0){ //we are at end of word...
+			self.word++;
+			self.next_s_word = self.s_words[self.word];
+			self.old_s_word = "";
+		}else{
+			//we are not at end of word... what do we do?
+			//apparently nothing... just let the space shunt along the suggestion...?
+		}
+		self.suggest_word();
+	}
+	this.reject_suggestion = function(e){
+		if(self.next_s_word === undefined) return;
+		console.log("rejecting suggestion...");
+		var cursor = self.cm.getCursor();
+		//var letter = self.cm.getRange({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1});
+		//console.log(letter+" == "+self.next_s_word.substr(0,1));
+		//letter entered matches next letter of suggestion so move along and modify the next_s_word
+		//this always matches.... but the outcome isn't too bad...?
+		//if(letter == self.next_s_word.substr(0,1)){
+			//console.log("Match");
+			
+			//so we just accept the letter (ie don't preventDefault) 
+			//and remove the next letter from cm (ie first letter of 
+			//the suggested word and modify the suggested word accordingly
+			self.cm.replaceRange("", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1});
+			self.next_s_word = self.next_s_word.replace(/^(\w)/,"");
+			if(RegExp.$1 != undefined){
+				self.old_s_word = self.old_s_word+RegExp.$1;
+			}
+		//}else{
+			//a different letter to the suggestion entered so bin the suggested word
+		//	console.log("no Match");
+		//	self.cm.replaceRange("", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length});		
+		//}
+	}
+	//ie delete
+	this.reject_edit = function(){
+		//repair the next_s_word ie stick the last letter of old_s_word to the end
+		var cursor = self.cm.getCursor();
+		console.log("old_s_word is "+self.old_s_word);
+		self.old_s_word = self.old_s_word.replace(/(\w)$/,"");
+		osw_last = RegExp.$1;
+		console.log("putting "+osw_last+" back on "+self.next_s_word);
+		self.next_s_word = osw_last+self.next_s_word;
+		console.log("next_s_word is now: "+self.next_s_word);
+		self.cm.replaceRange(osw_last, {line:self.current_line_num, ch: cursor.ch});
+		self.cm.markText({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1}, {className: "suggestion"});
+		self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
+	}
 	this.load_image = function(image) {
 		$("#image-canvas").css({background: "none"}).drawText({
 			  fillStyle: '#333',
