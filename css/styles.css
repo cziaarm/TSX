@@ -170,7 +170,9 @@ div#edit-area{
 .CodeMirror {
 	height: 100%;
 }
-
+.suggestion {
+	color: #ccc;
+}
 /**************************/
 
 /* Image panel */
