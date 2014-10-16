@@ -612,6 +612,8 @@ function TSX(config) {
 		
 		var prev_line = self.current_line_num;
 		var cursor = self.cm.getCursor();
+		console.log(self.current_page);
+		console.log(cursor.line);
 		$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
 		console.log(self.ts_data[self.current_page][cursor.line].id);
 
@@ -620,17 +622,21 @@ function TSX(config) {
 			self.current_line = self.ts_data[self.current_page][cursor.line];
 		}
 		self.current_line_num = cursor.line;
+		//we have moved to another line
 		if(cursor.line != prev_line){
 			//self.draw_line_poly();
+			//pan the image to the new line
 			if(self.mode != "plain"){
 				self.pan_to_line();
 			}
+			//init suggestions for the new line
 			if(self.mode === "interactive"){
 				self.init_suggestions();
 			}
-		}else if(self.mode == "interactive"){
-			this.reposition_suggestions(cursor);
 		}
+		//else if(self.mode == "interactive"){
+		//	this.reposition_suggestions(cursor);
+		//}
 	}
 	this.pan_to_line = function(){
 		
@@ -708,7 +714,7 @@ function TSX(config) {
 	}
 	this.init_htr = function(){
 		console.log("INIT HTR");
-
+		if(self.local) return;
 		require("jquery.editable.itp");
   
 		// This lib may help to prevent unwanted asynchronous events.
@@ -911,22 +917,9 @@ function TSX(config) {
 		self.cm.markText({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length}, {className: "suggestion"});
 		self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
 	}
-	this.reposition_suggestions = function(cursor){
-		console.log("s_line: "+self.s_line.substr(cursor.ch));
-/*		self.s_line = self.s_line.substr(cursor.ch);
-		self.s_words = self.s_line.split(/\s/);
-		self.word = 0;
-		self.next_s_word = self.s_words[self.word];
-*/
-	/*	self.e_line = self.cm.getLine(self.current_line_num);
-		self.e_words = self.e_line.split(/\s/);
-		console.log(self.e_words);
-		for(var i = 0; i<self.e_words.length; i++){
-			if(self.e_words[i] === "") continue;
-			console.log(self.s_words[i]+" == "+self.e_words[i]);
-		}
-		*/
-	}
+	//this.reposition_suggestions = function(cursor){
+	//	console.log("s_line: "+self.s_line.substr(cursor.ch));
+	//}
 	this.tab_complete = function(){
 		if(self.next_s_word === undefined) return;
 		var cursor = self.cm.getCursor();
@@ -967,7 +960,7 @@ function TSX(config) {
 			//and remove the next letter from cm (ie first letter of 
 			//the suggested word and modify the suggested word accordingly
 			self.cm.replaceRange("", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1});
-			self.next_s_word = self.next_s_word.replace(/^(\w)/,"");
+			self.next_s_word = self.next_s_word.replace(/^([^\s])/,"");
 			if(RegExp.$1 != undefined){
 				self.old_s_word = self.old_s_word+RegExp.$1;
 			}
@@ -979,17 +972,29 @@ function TSX(config) {
 	}
 	//ie delete
 	this.reject_edit = function(){
+		if(self.old_s_word === undefined) return;
+	
 		//repair the next_s_word ie stick the last letter of old_s_word to the end
 		var cursor = self.cm.getCursor();
-		console.log("old_s_word is "+self.old_s_word);
-		self.old_s_word = self.old_s_word.replace(/(\w)$/,"");
-		osw_last = RegExp.$1;
-		console.log("putting "+osw_last+" back on "+self.next_s_word);
-		self.next_s_word = osw_last+self.next_s_word;
-		console.log("next_s_word is now: "+self.next_s_word);
-		self.cm.replaceRange(osw_last, {line:self.current_line_num, ch: cursor.ch});
-		self.cm.markText({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1}, {className: "suggestion"});
-		self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
+		console.log("old_s_word is *"+self.old_s_word+"*");
+		//we have no more old word... must be space. move over space and decrement the s_word
+		if(self.old_s_word === ""){
+			self.cm.replaceRange(" ", {line:self.current_line_num, ch: cursor.ch});
+			self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
+			self.word--;
+			self.old_s_word = self.s_words[self.word];
+			console.log("reset old_s_word to : "+self.old_s_word);
+		}else{
+		
+			self.old_s_word = self.old_s_word.replace(/([^\s])$/,"");
+			osw_last = RegExp.$1;
+			console.log("putting "+osw_last+" back on "+self.next_s_word);
+			self.next_s_word = osw_last+self.next_s_word;
+			console.log("next_s_word is now: "+self.next_s_word);
+			self.cm.replaceRange(osw_last, {line:self.current_line_num, ch: cursor.ch});
+			self.cm.markText({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1}, {className: "suggestion"});
+			self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
+		}
 	}
 	this.load_image = function(image) {
 
@@ -1064,13 +1069,8 @@ function TSX(config) {
 		if(self.local){
 			var url = self.data_server+"page/"+self.current_page+".xml";
 			console.log("Loading transcript: "+url);
-				$.ajax({
+		/*	$.ajax({
   				  url: url,
-				  data:  {JSESSIONID: self.sessionId},
-				  crossDomain: true,
-				    xhrFields: {
-				        withCredentials: true
-				    },
 					done : function(data, textStatus, jqxhr){
 						self.current_transcript = data;
 						self.load_transcript_data();
@@ -1083,7 +1083,8 @@ function TSX(config) {
 //						$("#connection_message").remove();
 					}
 				});
-/*
+				*/
+
 			$.get(url)
 				.done(function( doc ) {
 					self.current_transcript = doc;
@@ -1093,7 +1094,7 @@ function TSX(config) {
 					var err = textStatus + ", " + error;
 					console.log( "Request Failed: " + err );
 				});
-*/
+
 				
 		}else{
 			var transcripts = self.docs.pageList.pages[self.current_page].tsList.transcripts;
@@ -1109,7 +1110,7 @@ function TSX(config) {
 	this.load_transcript_data = function(){
 		self.ts_data[self.current_page] = [];
 		var line = 0;
-		
+		console.log("loading transcript data");
 		$(self.current_transcript).find("TextLine").each(function(){
 			var points = Array();
 			var rec = {x: {max: 0, min: 1.7976931348623157E+10308}, y: {max: 0, min: 1.7976931348623157E+10308}};
@@ -1185,8 +1186,8 @@ function TSX(config) {
 			  .fail(function( jqxhr, textStatus, error ) {
 				var err = textStatus + ", " + error;
 				console.log( "Request Failed: " + err );
-*/			});
-
+			});
+*/
 	}
 	this.handle_transcript_list = function(transcripts){
 		for(var i in transcripts){	
