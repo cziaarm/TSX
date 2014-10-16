@@ -181,6 +181,18 @@ div#edit-area{
 	height: 100%;
 }
 
+/********htr stuff **********/
+
+#htr_stuff {
+	display: none;
+}
+#htr_image {
+	display: none;
+}
+#htr_target {
+	display: none;
+}
+
 /*
 
 #ac_container {
