@@ -24,6 +24,7 @@ function TSX(config) {
 	this.line_change_keys = [13,38,40,8,33,34];
 	this.accept_keys = [9,32];
 	this.control_keys = [17, 18, 16, 20, 35, 36, 37, 39, 45, 46, 91, 93, 144, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 145, 19, 13,38,40,33,34 ]; //ignore these
+	this.htrConnected = false;
 	self = this;
 
 	//init: check connection to data server
@@ -105,22 +106,43 @@ function TSX(config) {
 	//authenticate: authenticate user credentials against data_server and set cookie
 	this.authenticate = function(){
 		var auth_url = self.data_server+"auth/login_debug";
-	//	console.log("Logging into Innsbruck with: "+auth_url+" and {user: "+$("#email").val()+", pw: "+$("#password").val()+"}");
+		console.log("Logging into Innsbruck with: "+auth_url+" and {user: "+$("#email").val()+", pw: "+$("#password").val()+"}");
 
 //		var auth_url = self.data_server+"auth/login";
 		data = {user: $("#email").val(), pw: $("#password").val()};
+		$.ajax({
+			  url: auth_url,	
+			  crossDomain: true,
+			  data: data,
+		    	  xhrFields: {
+			        withCredentials: true
+			  },
+			done: function(d){
+				console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
+				self.sessionId = $(d).find("trpUserLogin sessionId").html();
+				$.cookie("TSX_session", self.sessionId);
+			//	dialog.dialog( "close" );
+				$( "#dialog-form" ).dialog("close");
+				console.log("Have set cookie: "+self.sessionId);
+				self.afterConnection();
+			},
+			fail: function(jqxhr,textStatus,error){
+				$("#auth_error_message").html("We were unable to authenticate you using the username and password supplied, please try again or create an account if you don't have one.");
+			}
+		});
+/*
 		var jqxhr = $.get( auth_url, data, function(d) {
-//			console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
+			console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
 			self.sessionId = $(d).find("trpUserLogin sessionId").html();
 			$.cookie("TSX_session", self.sessionId);
 		//	dialog.dialog( "close" );
 			$( "#dialog-form" ).dialog("close");
-//			console.log("Have set cookie: "+self.sessionId);
+			console.log("Have set cookie: "+self.sessionId);
 			self.afterConnection();
 		}).fail(function(jqxhr,textStatus,error) {
 			$("#auth_error_message").html("We were unable to authenticate you using the username and password supplied, please try again or create an account if you don't have one.");
 		});
-		 
+*/		 
 //		?user=trpUser&pw=test123
 	}
 	this.addUser = function() {
@@ -159,6 +181,29 @@ function TSX(config) {
 			self.render_local_data_list();
 		}else{
 			if(self.docs === undefined){
+				$.ajax({
+  				  url: self.data_server+self.data_list,
+				  data:  {JSESSIONID: self.sessionId},
+				  crossDomain: true,
+				    xhrFields: {
+				        withCredentials: true
+				    },
+					done : function(data, textStatus, jqxhr){
+						self.logged_in = true;
+						self.docs = data;
+						self.render_data_list();
+					},
+					fail : function(jqxhr,textStatus,error){
+						console.log("Connection failure: "+error);
+						alert("Could not connect to data server: "+self.data_server);
+					},
+					always : function(){
+						$("#connection_message").remove();
+					}
+				});
+
+//				});
+/*
 				$.getJSON(  self.data_server+self.data_list, {JSESSIONID: self.sessionId} )
 					.done(function(data, textStatus, jqxhr){
 					self.logged_in = true;
@@ -170,6 +215,7 @@ function TSX(config) {
 				}).always(function(){
 					$("#connection_message").remove();
 				});
+*/
 			}else{
 				self.render_data_list();
 			}
@@ -292,6 +338,32 @@ function TSX(config) {
 		$(".batch").on("click", function(){
 			self.current_doc = $(this).attr("data-docId");
 			var url = self.data_server+"docs/"+$(this).attr("data-docId")+"/fulldoc";
+			console.log("HERE");
+			$.ajax({
+  				  url: url,
+//				  type: "GET",
+//				  data:  {JSESSIONID: self.sessionId},
+				  crossDomain: true,
+				    xhrFields: {
+				        withCredentials: true
+				    },
+					done : function(json, textStatus, jqxhr){
+						console.log("anything");
+
+						self.docs = json;
+						self.render_docs_list();
+					},
+					fail : function(jqxhr,textStatus,error){
+						var err = textStatus + ", " + error;
+						console.log( "Request Failed: " + err );
+					},
+					always : function(){
+//						$("#connection_message").remove();
+						console.log("anything");
+					}
+				});
+		});
+/*
 			$.getJSON(  url  )
 		  		.done(function( json ) {
 					self.docs = json;
@@ -302,6 +374,7 @@ function TSX(config) {
 					console.log( "Request Failed: " + err );
 				});
 		});
+*/
 	}
 	this.render_docs_list = function(){
 		var pages = self.docs.pageList.pages;
@@ -326,12 +399,14 @@ function TSX(config) {
 			$("#data-list ul").empty().addClass("grid");
 			for( var i in box){
 //				$("#data-list ul").append("<li class=\"doc_ref\"rel=\""+box[i].url+"\" data-pageInd="+box[i].pageNr+"><img src=\""+box[i].thumbUrl+"\" title='"+box[i].imgFileName+"'/>"+box[i].imgFileName+"</li>");
-				$("#data-list ul").append("<li class=\"doc_ref\"rel=\""+box[i].url+"\" data-pageInd=\""+i+"\"><img src=\""+box[i].thumbUrl+"\" title='"+box[i].imgFileName+"'/>"+box[i].imgFileName+"</li>");
+				var page_ref = box[i].imgFileName.replace(/\.\w+$/,"");
+				$("#data-list ul").append("<li class=\"doc_ref\"rel=\""+box[i].url+"\" data-pageInd=\""+i+"\" data-pageRef=\""+page_ref+"\"><img src=\""+box[i].thumbUrl+"\" title='"+box[i].imgFileName+"'/>"+box[i].imgFileName+"</li>");
 
 			}
 
 			$(".doc_ref").on("click", function(){
 				self.current_page = $(this).attr("data-pageInd");
+				self.current_page_ref = $(this).attr("data-pageRef");
 				self.load_image($(this).attr("rel"));
 //				self.load_transcript();
 
@@ -398,12 +473,19 @@ function TSX(config) {
 		//TODO pickup the cm event 
 		$("#edit-area").on("mousedown", function(e){
 			self.handle_move();
+			console.log(self.mode+' === "interactive" && '+self.htrSocketPort+' && !'+self.htrConnected);
+
+			if(self.mode === "interactive" && self.htrSocketPort && !self.htrConnected){
+				self.connect_to_htr(e);
+			}
+
 		});
 		self.cm.on("keydown", function(cm, e){
 			//console.log(e.which);
 			//console.log($.inArray(e.which, self.accept_keys));
 			
 			if(self.mode === "interactive"){
+
 				if($.inArray(e.which, self.accept_keys)>=0){			
 						//tab
 						if(e.which === 9){
@@ -529,8 +611,10 @@ function TSX(config) {
 	this.handle_move = function(e){
 		
 		var prev_line = self.current_line_num;
-
 		var cursor = self.cm.getCursor();
+		$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
+		console.log(self.ts_data[self.current_page][cursor.line].id);
+
 		if(self.ts_data[self.current_page] != undefined && self.ts_data[self.current_page][cursor.line] != undefined){
 			//console.log(self.ts_data[cursor.line].poly);
 			self.current_line = self.ts_data[self.current_page][cursor.line];
@@ -540,7 +624,6 @@ function TSX(config) {
 			//self.draw_line_poly();
 			if(self.mode != "plain"){
 				self.pan_to_line();
-				console.log(self.ts_data[self.current_page][cursor.line].text+" ("+self.ts_data[self.current_page][cursor.line].id+")");
 			}
 			if(self.mode === "interactive"){
 				self.init_suggestions();
@@ -633,15 +716,13 @@ function TSX(config) {
   
 		// This is the editable target text field, 
 		// which will enable interactive transcription facilities.
-		var $target = $('#target');
   
 		// Start app on clicking on the source image.
-		$('img#source').one('click', connect_to_htr);
+//		$('img#source').one('click', self.connect_to_htr);
 
 		// Check HTR engine availability.
-		var socketPort = self.getAvailableSocket();
+		self.getAvailableSocket();
 
-		console.log(socketPort);
 	/*	var $target = $('#my-target-element');
 		var options = {
 			// We must indicate the source element to read data from. This element has as text the image patch ID.
@@ -658,37 +739,143 @@ function TSX(config) {
 			nTested = 0;
 			for (var n in portNums) {
 				if (portNums[n] === true) {
-					socketPort = n;
+					self.htrSocketPort = n;
 					break;
 				}
 				nTested++;
 			}
 			if (nTested == howMany) alert("No HTR engines are available!");
-			console.log("Using engine at port", socketPort);
+			console.log("Using engine at port", self.htrSocketPort);
 		});
 	}
 	this.connect_to_htr = function(ev) {
-	    blockUI("Connecting...");
+	    console.log("Connecting...");
 	    
 	    // Setup the jQuery editable plugin.
-	    $target.editableItp({
+		var $target = $('#htr_target');
+
+	    $("#htr_target").editableItp({
 	      // We must indicate the source element to read data from.
 	      sourceSelector: ".source-text",
 	      // By now we are using the CasMaCat architecture, 
 	      // although in tS it will be pretty similar.
 	      // We use the "at" symbol to indicate custom socket.io resources.
-	      itpServerUrl:   "http://casmacat.prhlt.upv.es@" + socketPort + "/casmacat"
+	      itpServerUrl:   "http://casmacat.prhlt.upv.es@" + self.htrSocketPort + "/casmacat"
 	    })
 	    // Now we can attach some event listeners, this one is mandatory.
-	    .on('ready', isReady)
+	    .on('ready', self.isReady)
 	    // We can attach different callbacks to the same event, of course.
 	    .on('ready', function(ev, msg) {
-	      unblockUI();
+	      self.unblockUI();
 	    })
 	    .on('unready', function(ev, msg) {
-	      blockUI(msg);
+	      self.blockUI(msg);
 	    })
-	  };
+		self.htrConnected = true;
+	  }
+
+	this.isReady = function() {
+		var $target = $('#htr_target');
+
+	    // At this point, the server has initialized the wordgraph 
+	    // the connection has been successfully stablished.
+	    
+	    // Let's change some server-side settings.
+	    var settings = $target.editableItp('getConfig');
+	    console.log("Settings:", settings);
+	    // For instance, the editing mode will be Interactive Text Prediction.
+	    settings.mode = "ITP";
+	    $target.editableItp('updateConfig', settings);
+	    
+	    // Decode current image if there is no transcribed text so far.
+	    var transcription = $target.text();
+	    if ($.trim(transcription).length === 0) {
+	      $target.editableItp('decode');
+	    }
+
+	    // Now attach a number of callbacks (more to come).
+	    $target.on('decode', function(ev, data, err) {
+	      if (err.length > 0) console.error("Error!", err);
+	      // The server has decoded a given source image ID.
+	      console.log(ev.type, data);
+	      $target.editableItp('startSession');
+	    })
+	    .on('startSessionResult', function(data, err) {
+	      if (err.length > 0) console.error("Error!", err);
+	      // The server has initiated an interactive session.
+	      console.log(ev.type, data);
+	    })
+	    .on('suffixchange', function(ev, data, err) {
+	      if (err.length > 0) console.error("Error!", err);
+	      // The user has validated a prefix, 
+	      // so the server predicts a suitable continuation of it.
+	      console.log(ev.type, data);
+	    })
+	    .on('confidences', function(ev, data, err) {
+	      if (err.length > 0) console.error("Error!", err);
+	      // Confidence measures information is received.
+	      console.log(ev.type, data);
+	    })
+	    .on('tokens', function(ev, data, err) {
+	      if (err.length > 0) console.error("Error!", err);
+	      // Tokenization information is received.
+	      console.log(ev.type, data);
+	    })
+	    .on('alignments', function(ev, data, err) {
+	      if (err.length > 0) console.error("Error!", err);
+	      // Word-level alignment information is received.
+	      console.log(ev.type, data);
+	    })    
+	    .on('serverconfig', function(ev, data, err) {
+	      if (err.length > 0) console.error("Error!", err);
+	      // Server-side configuration information is received.
+	      console.log(ev.type, data);
+	    })
+	    .on('validate', function(ev, data, err) {
+	      if (err.length > 0) console.error("Error!", err);
+	      // Transcription is validated. A new source-target pair has been learned.
+	      console.log(ev.type, data);
+	    })
+	    .on('validatedcontributions', function(ev, data, err) {
+	      // Requests a list of the previously validated user contributions.
+	      console.log(ev.type, data);
+	    })
+	//    // TODO: Extra functionalities, for e.g. logging
+	//    .on('mousewheelup', function(ev, pos, stack) {
+	//    })
+	//    .on('mousewheeldown', function(ev, pos, stack) {
+	//    })
+	//    .on('mousewheelinvalidate', function(ev) {
+	//    })
+	//    .on('mementoundo', function(ev, pos, stack) {
+	//    })
+	//    .on('mementoredo', function(ev, pos, stack) {
+	//    })
+	//    .on('mementoinvalidate', function(ev) {
+	//    })
+	  }
+		this.blockUI = function(msg) {
+	    $('#global').block({
+	      message: '<h2>' + msg + '</h2>',
+	      // Add some fancy styles
+	      css: {
+		fontSize:'150%', 
+		padding:'1% 2%', 
+		top:'45%', 
+		borderWidth:'3px', 
+		borderRadius:'10px', 
+		'-webkit-border-radius':'10px', 
+		'-moz-border-radius':'10px' 
+	      }
+	    });  
+	  }
+	  
+	  this.unblockUI = function() {
+	    $('#global').unblock();
+	  }
+
+
+
 	  /************* predictive text ***********/
 	  //Works nicely as long as the cursor doesn't wander off and come back...
 	  // need a method to re-find where we are in the suggested line...
@@ -805,6 +992,7 @@ function TSX(config) {
 		self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
 	}
 	this.load_image = function(image) {
+
 		$("#image-canvas").css({background: "none"}).drawText({
 			  fillStyle: '#333',
 			  strokeStyle: '#ccc',
@@ -815,6 +1003,8 @@ function TSX(config) {
 			  text: "Please wait, fetching image..."});
 			
 			var img = new Image();
+			//do it this way first... obviously would prefer to keep this data no in the DOM if poss
+			$("#htr_image").html('<img id="source" src="'+image+'"/>');
 
 			$(img).attr('src', image).load(function() {
 
@@ -874,6 +1064,26 @@ function TSX(config) {
 		if(self.local){
 			var url = self.data_server+"page/"+self.current_page+".xml";
 			console.log("Loading transcript: "+url);
+				$.ajax({
+  				  url: url,
+				  data:  {JSESSIONID: self.sessionId},
+				  crossDomain: true,
+				    xhrFields: {
+				        withCredentials: true
+				    },
+					done : function(data, textStatus, jqxhr){
+						self.current_transcript = data;
+						self.load_transcript_data();
+					},
+					fail : function(jqxhr,textStatus,error){
+						var err = textStatus + ", " + error;
+						console.log( "Request Failed: " + err );
+					},
+					always : function(){
+//						$("#connection_message").remove();
+					}
+				});
+/*
 			$.get(url)
 				.done(function( doc ) {
 					self.current_transcript = doc;
@@ -883,6 +1093,7 @@ function TSX(config) {
 					var err = textStatus + ", " + error;
 					console.log( "Request Failed: " + err );
 				});
+*/
 				
 		}else{
 			var transcripts = self.docs.pageList.pages[self.current_page].tsList.transcripts;
@@ -922,11 +1133,12 @@ function TSX(config) {
 					if(co[1]<rec.y.min) rec.y.min = co[1];
 				}
 			});
-			console.log("loading data for line: "+line);
+			console.log("loading data for line: "+line+" ("+self.current_page_ref+")");
 			self.ts_data[self.current_page][line] = {
 				text: $(this).find(" > TextEquiv > Unicode").html(), 
 				poly: $(this).find(" > Coords").attr("points"),
-				id: "JB."+self.current_page+"."+$(this).parent("TextRegion").attr("id")+"."+$(this).attr("id"),
+				id: "JB."+self.current_page_ref+"."+$(this).parent("TextRegion").attr("id")+"."+$(this).attr("id"),
+//				id: "JB.115_065_004_02_01",
 				points: points,
 				rec: rec
 			};
@@ -945,6 +1157,26 @@ function TSX(config) {
 		//console.log(transcript);
 		var url = transcript.url;
 		console.log("Loading transcript: "+url);
+		$.ajax({
+			 url: url,
+			 data:  {JSESSIONID: self.sessionId},
+				  crossDomain: true,
+			    xhrFields: {
+			        withCredentials: true
+			    },
+				done : function(data, textStatus, jqxhr){
+					self.current_transcript = data;
+					self.load_transcript_data();
+				},
+				fail : function(jqxhr,textStatus,error){
+					var err = textStatus + ", " + error;
+					console.log( "Request Failed: " + err );
+				},
+				always : function(){
+//					$("#connection_message").remove();
+				}
+			});
+/*
 		$.get(url, {JSESSIONID : self.sessionId}  )
 			.done(function( doc ) {
 				self.current_transcript = doc;
@@ -953,7 +1185,7 @@ function TSX(config) {
 			  .fail(function( jqxhr, textStatus, error ) {
 				var err = textStatus + ", " + error;
 				console.log( "Request Failed: " + err );
-			});
+*/			});
 
 	}
 	this.handle_transcript_list = function(transcripts){
