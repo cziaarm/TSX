@@ -110,14 +110,40 @@ function TSX(config) {
 
 //		var auth_url = self.data_server+"auth/login";
 		data = {user: $("#email").val(), pw: $("#password").val()};
-		$.ajax({
+		var jqxhr = $.ajax( auth_url, {
+			  crossDomain: true,
+			  data: data,
+		    	  xhrFields: {
+			        withCredentials: true
+			  }} )
+		  .done(function(d) {
+//		    alert( "success" );
+				console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
+				self.sessionId = $(d).find("trpUserLogin sessionId").html();
+				$.cookie("TSX_session", self.sessionId);
+			//	dialog.dialog( "close" );
+				$( "#dialog-form" ).dialog("close");
+				console.log("Have set cookie: "+self.sessionId);
+				self.afterConnection();
+
+		  })
+		  .fail(function(jqxhr,textStatus,error) {				console.log("Fail");
+				$("#auth_error_message").html("We were unable to authenticate you using the username and password supplied, please try again or create an account if you don't have one.");
+
+		  })
+		  .always(function() {
+		 //   alert( "complete" );
+		  });
+/*		$.ajax({
 			  url: auth_url,	
+//			  type: "POST",
 			  crossDomain: true,
 			  data: data,
 		    	  xhrFields: {
 			        withCredentials: true
 			  },
-			done: function(d){
+			done : function(d){
+				
 				console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
 				self.sessionId = $(d).find("trpUserLogin sessionId").html();
 				$.cookie("TSX_session", self.sessionId);
@@ -126,10 +152,15 @@ function TSX(config) {
 				console.log("Have set cookie: "+self.sessionId);
 				self.afterConnection();
 			},
-			fail: function(jqxhr,textStatus,error){
+			fail : function(jqxhr,textStatus,error){
+				console.log("Fail");
 				$("#auth_error_message").html("We were unable to authenticate you using the username and password supplied, please try again or create an account if you don't have one.");
-			}
-		});
+			},
+			always : function(){
+				console.log("Always");
+				}
+			});
+*/
 /*
 		var jqxhr = $.get( auth_url, data, function(d) {
 			console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
@@ -187,40 +218,23 @@ function TSX(config) {
 				  crossDomain: true,
 				    xhrFields: {
 				        withCredentials: true
-				    },
-					done : function(data, textStatus, jqxhr){
+				    }}).
+					done(function(data, textStatus, jqxhr){
 						self.logged_in = true;
 						self.docs = data;
 						self.render_data_list();
-					},
-					fail : function(jqxhr,textStatus,error){
+					}).
+					fail(function(jqxhr,textStatus,error){
 						console.log("Connection failure: "+error);
 						alert("Could not connect to data server: "+self.data_server);
-					},
-					always : function(){
+					}).
+					always(function(){
 						$("#connection_message").remove();
-					}
-				});
-
-//				});
-/*
-				$.getJSON(  self.data_server+self.data_list, {JSESSIONID: self.sessionId} )
-					.done(function(data, textStatus, jqxhr){
-					self.logged_in = true;
-					self.docs = data;
-					self.render_data_list();
-				}).fail(function(jqxhr,textStatus,error){
-					console.log("Connection failure: "+error);
-					alert("Could not connect to data server: "+self.data_server);
-				}).always(function(){
-					$("#connection_message").remove();
-				});
-*/
+					});
 			}else{
 				self.render_data_list();
 			}
 		}
-
 	}
 
 	function now(){
@@ -346,22 +360,21 @@ function TSX(config) {
 				  crossDomain: true,
 				    xhrFields: {
 				        withCredentials: true
-				    },
-					done : function(json, textStatus, jqxhr){
+				    }}).
+					done(function(json, textStatus, jqxhr){
 						console.log("anything");
 
 						self.docs = json;
 						self.render_docs_list();
-					},
-					fail : function(jqxhr,textStatus,error){
+					}).
+					fail(function(jqxhr,textStatus,error){
 						var err = textStatus + ", " + error;
 						console.log( "Request Failed: " + err );
-					},
-					always : function(){
+					}).
+					always(function(){
 //						$("#connection_message").remove();
 						console.log("anything");
-					}
-				});
+					});
 		});
 /*
 			$.getJSON(  url  )
@@ -1069,32 +1082,23 @@ function TSX(config) {
 		if(self.local){
 			var url = self.data_server+"page/"+self.current_page+".xml";
 			console.log("Loading transcript: "+url);
-		/*	$.ajax({
-  				  url: url,
-					done : function(data, textStatus, jqxhr){
+			$.ajax(url, {
+			  crossDomain: true,
+			  data: data,
+		    	  xhrFields: {
+			        withCredentials: true
+			  }} ).
+				done(function(data, textStatus, jqxhr){
 						self.current_transcript = data;
 						self.load_transcript_data();
-					},
-					fail : function(jqxhr,textStatus,error){
+					}).
+				fail(function(jqxhr,textStatus,error){
 						var err = textStatus + ", " + error;
 						console.log( "Request Failed: " + err );
-					},
-					always : function(){
-//						$("#connection_message").remove();
-					}
+				}).
+				always(function(){
+//					$("#connection_message").remove();
 				});
-				*/
-
-			$.get(url)
-				.done(function( doc ) {
-					self.current_transcript = doc;
-					self.load_transcript_data();
-				 })
-				  .fail(function( jqxhr, textStatus, error ) {
-					var err = textStatus + ", " + error;
-					console.log( "Request Failed: " + err );
-				});
-
 				
 		}else{
 			var transcripts = self.docs.pageList.pages[self.current_page].tsList.transcripts;
@@ -1159,9 +1163,9 @@ function TSX(config) {
 		var url = transcript.url;
 		console.log("Loading transcript: "+url);
 		$.ajax({
-			 url: url,
-			 data:  {JSESSIONID: self.sessionId},
-				  crossDomain: true,
+			url: url,
+			data:  {JSESSIONID: self.sessionId},
+			crossDomain: true,
 			    xhrFields: {
 			        withCredentials: true
 			    },
