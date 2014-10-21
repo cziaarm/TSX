@@ -93,9 +93,9 @@ function TSX(config) {
 	}
 	
 	/************** USER AUTH Functions *******************/
-	/** Functions for initial communication and 		 **/
+	/** Functions for initial communication and 	     **/
 	/** authentication with data server user management  **/
-	/** etc												 **/
+	/** etc						     **/
 	/******************************************************/
 	
 	//credentials() show log-in dialog with option to create account
@@ -453,7 +453,7 @@ function TSX(config) {
 	/****************** Doc/Data presentation ****************/
 	/** After comms, auth and UI main sorted out we will	**/ 
 	/** access the lists of docs stored on the data server  **/
-	/** and present them to the user in some form			**/
+	/** and present them to the user in some form		**/
 	/*********************************************************/
 
 	
@@ -738,8 +738,8 @@ function TSX(config) {
 	}
 
 	/*********************** HTR *************************/
-	/** Function for handling the connecction to the   	**/
-	/** HTR server and suggestions etc				   	**/
+	/** Function for handling the connecction to the    **/
+	/** HTR server and suggestions etc		    **/
 	/*****************************************************/
 
 	//init_htr() = set up the bits of DOM that will request and respond to HTR
@@ -760,7 +760,8 @@ function TSX(config) {
 	}
 	// getAvailableSocket() gets a valid port to usse for HTR socket
 	this.getAvailableSocket = function(){
-		$.getJSON("http://casmacat.prhlt.upv.es/servers/status/poc?callback=?", function(portNums){
+//		$.getJSON("http://casmacat.prhlt.upv.es/servers/status/poc?callback=?", function(portNums){
+		$.getJSON(self.htr_server+"/servers/status/poc?callback=?", function(portNums){
 			var howMany = Object.keys(portNums).length,
 			nTested = 0;
 			for (var n in portNums) {
@@ -793,7 +794,9 @@ function TSX(config) {
 	      // By now we are using the CasMaCat architecture, 
 	      // although in tS it will be pretty similar.
 	      // We use the "at" symbol to indicate custom socket.io resources.
-	      itpServerUrl:   "http://casmacat.prhlt.upv.es@" + self.htrSocketPort + "/casmacat"
+//	      itpServerUrl:   "http://casmacat.prhlt.upv.es@" + self.htrSocketPort + "/casmacat"
+	      itpServerUrl:   self.htr_server + "@" + self.htrSocketPort + "/casmacat"
+
 	    })
 	    // Now we can attach some event listeners, this one is mandatory.
 	    .on('ready', self.isReady)
@@ -1288,8 +1291,9 @@ $(document).ready(function(){
 			case 'http:':
 			case 'https:':
 			 //remote file over http or https
-			 var tsx = new TSX({data_server: "https://dbis-faxe.uibk.ac.at/TrpServerBentham/rest/",data_list: "docs/list"});
-
+			 var tsx = new TSX({data_server: "https://dbis-faxe.uibk.ac.at/TrpServerBentham/rest/",
+						data_list: "docs/list",
+					    htr_server: "http://casmacat.prhlt.upv.es"});
 			 break;
 			case 'file:':
 				var tsx = new TSX({data_server: "./TSX_images/", data_list: "index.html"});
