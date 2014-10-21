@@ -408,8 +408,47 @@ function TSX(config) {
 		});
 		self.init_TEI_editing();
 	}
+	//init_mode_handling() actions dependent on transcription mode
+	// 1. plain - no transcript (though layout data loaded if available)
+	// 2. post - transcript for whole page loaded into edit area
+	// 3. interactive - no transcript, but HTR interaction initialised for predictive suggestions
+	this.init_mode_handling = function (){
+		$( "#control-column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
+		$("#mode").on("change", function(){
+	//		console.log("I am in "+$(this).val()+" mode");
+			self.mode = $(this).val();
+			$(this).closest( ".column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
+			//no current page loaded so we don't care at this point...action-wise?
+			if(self.current_page === undefined){
+					return false;
+			}
 	
-		
+			//current_page is defined, but the transcript data is not loaded 
+			if(self.ts_data[self.current_page] === undefined){
+					//load transcript data
+					self.load_transcript();
+			}
+			
+			switch(self.mode) {
+				case "plain":
+						//hide transcript
+						self.unrender_transcript();
+					break;
+				case "post":
+						//show transcript
+						self.render_transcript();
+					break;
+				case "interactive":
+						//hide transcript
+						self.unrender_transcript();
+						//init handwriting transcription recognition... I have no idea what HTR actually stands for
+						self.init_htr();
+					break;
+				default:
+					console.log("mode not defined");
+			}				
+		});
+	}		
 	
 	/****************** Doc/Data presentation ****************/
 	/** After comms, auth and UI main sorted out we will	**/ 
@@ -526,132 +565,13 @@ function TSX(config) {
 	}
 	
 	
-	/**************** EDITING ****************/
-	/** functions for editing transcripts   **/
-	/*****************************************/
+	/******************************* EDITING ********************************/
+	/** functions for editing transcripts								   **/
+	/** 	1. tracking line and moving/hilighting associated image region **/
+	/**		2. managing TEI and visual editing modes					   **/
+	/************************************************************************/
 	
-	
-	this.suggestion_handling = function(){
-		//codeMirror keydown event (we must use this to prevent default
-		self.cm.on("keydown", function(cm, e){
-			//console.log(e.which);
-			//console.log($.inArray(e.which, self.accept_keys));			
-			if($.inArray(e.which, self.accept_keys)>=0){			
-					//tab
-					if(e.which === 9){
-						console.log("tabbing");
-						e.preventDefault(); //why preventDefault not working? because this is codeMirror! we listen for cm.on...
-						self.tab_complete();
-					}
-					//space
-					if(e.which === 32){
-						console.log("spacing");
-						//e.preventDefault(); //why preventDefault not working? because this is codeMirror! we listen for cm.on...
-						self.space_complete();
-					}			
-			}else if($.inArray(e.which, self.control_keys)<0){
-				if(e.which === 8){ //backspace rejects the edit not the suggestion
-					self.reject_edit();
-				}else{
-					self.reject_suggestion();
-				}
-			}
-		});
-	}
-	this.init_TEI_editing = function(){
-	//TEI editing:
-		$("#edit-view-switch span#edit-view-"+self.edit_view).css({color: "#000"});
-		$("#edit-view-switch span").on("click", function(){
-				if($(this).attr("id").match(/encoded$/)){
-					$("#edit-view-switch span#edit-view-encoded").css({color: "#000"});
-					$("#edit-view-switch span#edit-view-visual").css({color: "#ccc"});
-					self.render_encoded();
-				}else{
-					$("#edit-view-switch span#edit-view-encoded").css({color: "#ccc"});
-					$("#edit-view-switch span#edit-view-visual").css({color: "#000"});
-					self.render_visual();
-			}
-		});
-		
-/*		$(".tei").on("click",function(){
-			var from = self.cm.getCursor("from");
-			var to = self.cm.getCursor("to");	
-			console.log("marking text with class tei-"+$(this).attr("id"));
-			self.cm.markText(from, to, {className: "tei-"+$(this).attr("id")});
-		});
-		*/
-		$(".tei-insert").on("click",function(){			
-			self.cm.replaceSelection("<"+$(this).attr("id")+"/>");
-		});
-		$(".tei-wrap").on("click",function(){
-			var text = self.cm.getSelection();
-			var from = self.cm.getCursor("from");
-			var to = self.cm.getCursor("to");
-	//		console.log(to);
-			//TODO properly represent these
-			var tei_tags = {o: "<"+$(this).attr("id")+">", c: "</"+$(this).attr("id")+">"}; 
-			self.cm.replaceSelection(tei_tags.o+text+tei_tags.c);
-			//offset the text to mark according to the tei_tags...
-			//to.ch += offset;
-			to.ch += (tei_tags.o.length+tei_tags.c.length);
-		//	console.log("new from : "+from.ch);
-			self.cm.markText(from, to, {className: "tei-visual tei-"+$(this).attr("id")+"-disabled"});
-		});
-		$(".page-format").on("click",function(){
-			var text = self.cm.getSelection();
-			var from = self.cm.getCursor("from");
-			var to = self.cm.getCursor("to");
-			//in the <pre> (or do we build/amend the "page" data structure as we go along)
-			self.cm.addLineClass(from.line, "text", "page-"+$(this).attr("id")+"-start");
-			self.cm.addLineClass(to.line, "text", "page-"+$(this).attr("id")+"-end");
-			//also in the wrapping element for visual effect
-			self.cm.addLineClass(from.line, "wrap", "page-"+$(this).attr("id")+"-start");
-			self.cm.addLineClass(to.line, "wrap", "page-"+$(this).attr("id")+"-end");
-		});
-	}
-
-	this.render_visual = function(){
-		if(self.edit_view === "visual"){
-			return;
-		}
-		self.edit_view = "visual";
-		console.log("rendering visual");
-		
-		$(".tei-visual").each(function(){
-			
-			var new_class = $(this).attr("class").replace(/-disabled/,"-enabled");
-			var new_content = $(this).text().replace(/(<[^>]+>)/g,"");
-			console.log("new_content: "+new_content);
-			console.log(RegExp.$1);
-			$(this).attr("class", new_class);
-			
-			$(this).html(new_content); //using html to reinsert strips out end tags... ha!
-		});
-		
-		//TODO Switch TEI tags for spans with tei-class
-	}
-	this.render_encoded = function(){
-		if(self.edit_view === "encoded"){
-			console.log("already encoded");
-			return;
-		}
-		$(".tei-visual").each(function(){
-			
-			var new_class = $(this).attr("class").replace(/(.+\s(.+))-enabled/,RegExp.$1+"-disabled");
-			var new_content = $(this).text();
-			var tei_tag = RegExp.$2;
-			console.log("new_content: "+new_content);
-			console.log("tei_tag: "+tei_tag);
-			$(this).attr("class", new_class);
-			
-			$(this).html(new_content); //using html to reinsert strips out end tags... ha!
-		});
-
-		self.edit_view = "encoded";
-		console.log("rendering encoded");					
-
-		//TODO Switch spans with tei-class for TEI tags
-	}
+	//1. handle_move(), pan_to_line(), draw_line_poly()
 	
 	this.handle_move = function(e){
 		
@@ -722,68 +642,123 @@ function TSX(config) {
 		*/		 		
 		}
 	}
-	this.init_mode_handling = function (){
-		$( "#control-column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
-		$("#mode").on("change", function(){
-	//		console.log("I am in "+$(this).val()+" mode");
-			self.mode = $(this).val();
-			$(this).closest( ".column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
 	
-			if(self.current_page === undefined){
-					return false;
+	// 2. init_TEI_editing()
+	this.init_TEI_editing = function(){
+		
+		//editing mode (ie encoded or visual) switch
+		$("#edit-view-switch span#edit-view-"+self.edit_view).css({color: "#000"});
+		
+		$("#edit-view-switch span").on("click", function(){
+				if($(this).attr("id").match(/encoded$/)){
+					$("#edit-view-switch span#edit-view-encoded").css({color: "#000"});
+					$("#edit-view-switch span#edit-view-visual").css({color: "#ccc"});
+					self.render_encoded();
+				}else{
+					$("#edit-view-switch span#edit-view-encoded").css({color: "#ccc"});
+					$("#edit-view-switch span#edit-view-visual").css({color: "#000"});
+					self.render_visual();
 			}
-			
-				//current_page  is defined, but the data is not loaded 
-				if(self.ts_data[self.current_page] === undefined){
-						self.load_transcript();
-				}
-				
-					switch(self.mode) {
-						case "plain":
-								self.unrender_transcript();
-							break;
-						case "post":
-								self.render_transcript();
-							break;
-						case "interactive":
-								self.unrender_transcript();
-								self.init_htr();
-							break;
-						default:
-							console.log("mode not defined");
-					}
+		});
+		//insert void TEI tags (eg <gap/>
+		$(".tei-insert").on("click",function(){			
+			self.cm.replaceSelection("<"+$(this).attr("id")+"/>");
+		});
+		//wrap TEI tags around selected content
+		$(".tei-wrap").on("click",function(){
+			var text = self.cm.getSelection();
+			var from = self.cm.getCursor("from");
+			var to = self.cm.getCursor("to");
+			//TODO properly represent these?
+			var tei_tags = {o: "<"+$(this).attr("id")+">", c: "</"+$(this).attr("id")+">"}; 
+			self.cm.replaceSelection(tei_tags.o+text+tei_tags.c);
+			//offset the text to mark according to the tei_tags...
+			to.ch += (tei_tags.o.length+tei_tags.c.length);
+			//mark text with the disbaled version of the tei visual class
+			self.cm.markText(from, to, {className: "tei-visual tei-"+$(this).attr("id")+"-disabled"});
+		});
 		
-		
-			
+		//buggy and this is a visual thing...
+		//TODO make this encoded ie ,<p>s and <lb/>s
+		$(".page-format").on("click",function(){
+			var text = self.cm.getSelection();
+			var from = self.cm.getCursor("from");
+			var to = self.cm.getCursor("to");
+			//in the <pre> (or do we build/amend the "page" data structure as we go along)
+			self.cm.addLineClass(from.line, "text", "page-"+$(this).attr("id")+"-start");
+			self.cm.addLineClass(to.line, "text", "page-"+$(this).attr("id")+"-end");
+			//also in the wrapping element for visual effect
+			self.cm.addLineClass(from.line, "wrap", "page-"+$(this).attr("id")+"-start");
+			self.cm.addLineClass(to.line, "wrap", "page-"+$(this).attr("id")+"-end");
 		});
 	}
+	//render_visual()
+	this.render_visual = function(){
+		if(self.edit_view === "visual"){
+			return;
+		}
+		self.edit_view = "visual";
+//		console.log("rendering visual");
+		//nip through the spans that have been marked already and enable their dormant tei visual classes
+		$(".tei-visual").each(function(){
+			
+			var new_class = $(this).attr("class").replace(/-disabled/,"-enabled");
+			var new_content = $(this).text().replace(/(<[^>]+>)/g,"");
+			//console.log("new_content: "+new_content);
+			//console.log(RegExp.$1);
+			$(this).attr("class", new_class);
+			
+			$(this).html(new_content); //using html to reinsert strips out end tags... ha!
+		});
+		
+		//TODO: Switch TEI tags for spans with tei-class
+	}
+	//render_encoded()
+	this.render_encoded = function(){
+		if(self.edit_view === "encoded"){
+			console.log("already encoded");
+			return;
+		}
+		self.edit_view = "encoded";
+		//console.log("rendering encoded");					
+
+		//disable the tei visual classes
+		$(".tei-visual").each(function(){
+			
+			var new_class = $(this).attr("class").replace(/(.+\s(.+))-enabled/,RegExp.$1+"-disabled");
+			var new_content = $(this).text();
+			var tei_tag = RegExp.$2;
+//			console.log("new_content: "+new_content);
+	//		console.log("tei_tag: "+tei_tag);
+			$(this).attr("class", new_class);
+			
+			$(this).html(new_content); //using html to reinsert strips out end tags... ha!
+		});
+		//TODO Switch spans with tei-class for TEI tags
+	}
+
+	/*********************** HTR *************************/
+	/** Function for handling the connecction to the   	**/
+	/** HTR server and suggestions etc				   	**/
+	/*****************************************************/
+
+	//init_htr() = set up the bits of DOM that will request and respond to HTR
 	this.init_htr = function(){
 		console.log("INIT HTR");
 		if(self.local) return;
+		if(self.mode != "interactive") return;
+
 		require("jquery.editable.itp");
-  
 		// This lib may help to prevent unwanted asynchronous events.
 		require("jquery.blockUI");
   
-		// This is the editable target text field, 
-		// which will enable interactive transcription facilities.
-  
-		// Start app on clicking on the source image.
-//		$('img#source').one('click', self.connect_to_htr);
-
 		// Check HTR engine availability.
 		self.getAvailableSocket();
-
-	/*	var $target = $('#my-target-element');
-		var options = {
-			// We must indicate the source element to read data from. This element has as text the image patch ID.
-			sourceSelector: "#my-source-element",
-			// We use the "at" symbol to indicate custom socket.io resources.
-			itpServerUrl: "http://casmacat.prhlt.upv.es@" + socketPort + "/casmacat"
-	};
-   */
-		//$target.on('ready', isReady).editableItp(options);
+		//TODO: insert here (or after have socket) a check for presence of associated HTR data 
+		//(using http://transcriptorium.eu/demots/corpora/bentham/JB.002_080_001.json)
+	
 	}
+	// getAvailableSocket() gets a valid port to usse for HTR socket
 	this.getAvailableSocket = function(){
 		$.getJSON("http://casmacat.prhlt.upv.es/servers/status/poc?callback=?", function(portNums){
 			var howMany = Object.keys(portNums).length,
@@ -799,6 +774,13 @@ function TSX(config) {
 			console.log("Using engine at port", self.htrSocketPort);
 		});
 	}
+	
+	//connect_to_htr() get suggestion for current_line 
+	//at present called only when there is a mousedown in edit-area
+	
+	// We will farm use hidden elements in page htr_image, htr_target etc 
+	// to interact with HTR. suggestion fcuntions will pick up data from 
+	// htr_target
 	this.connect_to_htr = function(ev) {
 	    console.log("Connecting...");
 	    
@@ -824,7 +806,8 @@ function TSX(config) {
 	    })
 		self.htrConnected = true;
 	  }
-
+	//isReady() is callback for post HTR response action
+	//TODO: lots 
 	this.isReady = function() {
 		var $target = $('#htr_target');
 
@@ -904,8 +887,8 @@ function TSX(config) {
 	//    })
 	//    .on('mementoinvalidate', function(ev) {
 	//    })
-	  }
-		this.blockUI = function(msg) {
+	}
+	this.blockUI = function(msg) {
 	    $('#global').block({
 	      message: '<h2>' + msg + '</h2>',
 	      // Add some fancy styles
@@ -921,16 +904,50 @@ function TSX(config) {
 	    });  
 	  }
 	  
-	  this.unblockUI = function() {
+	this.unblockUI = function() {
 	    $('#global').unblock();
-	  }
+	}
 
-
-
-	  /************* predictive text ***********/
-	  //Works nicely as long as the cursor doesn't wander off and come back...
-	  // need a method to re-find where we are in the suggested line...
-	  // a comparison between e_words and s_words...
+	/************* Predictive suggestions (via HTR) **************/
+	/** Pick up data from HTR connection and suggest text 		**/
+	/** completion. 											**/
+	/*************************************************************/
+	
+	//TODO will need to integrate this more closely as HTR can 
+	//change it's mind on a suffix if a prefix is validated...?
+	
+	//suggestion_handling() react to key presses in edit-area
+	this.suggestion_handling = function(){
+		//codeMirror event listener (we must use this to prevent default)
+		self.cm.on("keydown", function(cm, e){
+			//console.log(e.which);
+			//console.log($.inArray(e.which, self.accept_keys));
+			// key pressed is an accept key?
+			if($.inArray(e.which, self.accept_keys)>=0){			
+					//tab
+					if(e.which === 9){
+						//console.log("tabbing");
+						e.preventDefault(); 
+						self.tab_complete();
+					}
+					//space
+					if(e.which === 32){
+						//console.log("spacing");
+						self.space_complete();
+					}			
+			//key pressed is not a control key
+			}else if($.inArray(e.which, self.control_keys)<0){
+				if(e.which === 8){ //backspace rejects the edit not the suggestion
+					self.reject_edit();
+				}else{
+					// reject the character suggested even if the input char matches
+					self.reject_suggestion();
+				}
+			}
+		});
+	}
+	//init_suggestions() (from pre-loaded ts_data for now, from htr_target soon!)
+	//line up the next suggested word (next_s_word)
 	this.init_suggestions = function(){
 		self.s_line = self.ts_data[self.current_page][self.current_line_num].text;
 		self.s_words = self.s_line.split(/\s/);
@@ -940,82 +957,69 @@ function TSX(config) {
 		self.old_s_word = "";
 		this.suggest_word();
 	}
+	//suggest_word() puts the suggested word (or portion thereof) ahead of the cursor in grey
 	this.suggest_word = function(){
 		if(self.next_s_word === undefined) return;
-		var cursor = self.cm.getCursor();
-		//if what is infront of us is not whitespace... don't suggest!
-		//console.log("line: "+self.current_line_num);
-		var infront = self.cm.getRange({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: null});
-		console.log("*"+infront+"*");
-		console.log(infront.length+" > 0 || "+infront.match(/^\s+$/g))
 		
+		var cursor = self.cm.getCursor();
+		
+		//if what is infront of us is not whitespace... don't suggest!
+		var infront = self.cm.getRange({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: null});
+		//console.log("*"+infront+"*");
+		//console.log(infront.length+" > 0 || "+infront.match(/^\s+$/g))
 		if(infront != "" && infront.match(/^\s+$/g) == null){
 			return;
 		}
 		
-		console.log("NOThing or just WHITESPACE!");
-		
-//		if(infront.length > 0) return;
-		//if(infront.length == 0 || infront.length.match(/\s+/)>=0) return;
-						
+//		console.log("NOThing or just WHITESPACE!");
+								
 		self.cm.replaceRange(self.next_s_word+" ", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length});
 		self.cm.markText({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length}, {className: "suggestion"});
 		self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
 	}
-	//this.reposition_suggestions = function(cursor){
-	//	console.log("s_line: "+self.s_line.substr(cursor.ch));
-	//}
+	//tab_complete() accept the suggestion replacing the grey text with some black text
 	this.tab_complete = function(){
 		if(self.next_s_word === undefined) return;
 		var cursor = self.cm.getCursor();
-		console.log("tabbed...");
+		//console.log("tabbed...");
 		self.cm.replaceRange(self.next_s_word+" ", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length});
+		//accepted that word so on to the next
 		self.word++;
 		self.next_s_word = self.s_words[self.word];
 		self.old_s_word = "";
 		self.suggest_word();
 	}
+	//space_complete() accept the suggestion replacing the grey text with some black text 
+	//but only if we are at the end of the suggested word
 	this.space_complete = function(){
 		if(self.next_s_word === undefined) return;
-		//var cursor = self.cm.getCursor();
-		console.log("spaced...");
-		//self.cm.replaceRange(self.next_s_word+" ", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length});
+	//	console.log("spaced...");
 		if(self.next_s_word.length == 0){ //we are at end of word...
 			self.word++;
 			self.next_s_word = self.s_words[self.word];
 			self.old_s_word = "";
 		}else{
 			//we are not at end of word... what do we do?
-			//apparently nothing... just let the space shunt along the suggestion...?
+			//apparently nothing... just let the space shunt the suggestion along...?
 		}
+		//suggest next word
 		self.suggest_word();
 	}
+	//reject_suggestion(): this will be the operation for normal typing	
 	this.reject_suggestion = function(e){
 		if(self.next_s_word === undefined) return;
 		console.log("rejecting suggestion...");
 		var cursor = self.cm.getCursor();
-		//var letter = self.cm.getRange({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1});
-		//console.log(letter+" == "+self.next_s_word.substr(0,1));
-		//letter entered matches next letter of suggestion so move along and modify the next_s_word
-		//this always matches.... but the outcome isn't too bad...?
-		//if(letter == self.next_s_word.substr(0,1)){
-			//console.log("Match");
-			
-			//so we just accept the letter (ie don't preventDefault) 
-			//and remove the next letter from cm (ie first letter of 
-			//the suggested word and modify the suggested word accordingly
-			self.cm.replaceRange("", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1});
-			self.next_s_word = self.next_s_word.replace(/^([^\s])/,"");
-			if(RegExp.$1 != undefined){
-				self.old_s_word = self.old_s_word+RegExp.$1;
-			}
-		//}else{
-			//a different letter to the suggestion entered so bin the suggested word
-		//	console.log("no Match");
-		//	self.cm.replaceRange("", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+self.next_s_word.length});		
-		//}
+		//We let typing happen as normal, but remove the first char of the suggestion
+		self.cm.replaceRange("", {line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1});
+		//we knock the first non-space char off the next suggested word
+		self.next_s_word = self.next_s_word.replace(/^([^\s])/,"");
+		//but we add that char to the old suggested word (see reject_edit())
+		if(RegExp.$1 != undefined){
+			self.old_s_word = self.old_s_word+RegExp.$1;
+		}
 	}
-	//ie delete
+	//reject_edit(): This is for backspaces and makes use of the old_s_word
 	this.reject_edit = function(){
 		if(self.old_s_word === undefined) return;
 	
@@ -1028,19 +1032,28 @@ function TSX(config) {
 			self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
 			self.word--;
 			self.old_s_word = self.s_words[self.word];
-			console.log("reset old_s_word to : "+self.old_s_word);
+//			console.log("reset old_s_word to : "+self.old_s_word);
 		}else{
-		
+			//otherwise get tge last letter of the old suggested word
 			self.old_s_word = self.old_s_word.replace(/([^\s])$/,"");
 			osw_last = RegExp.$1;
-			console.log("putting "+osw_last+" back on "+self.next_s_word);
+			//console.log("putting "+osw_last+" back on "+self.next_s_word);
+			//stick it back on the next suggested word
 			self.next_s_word = osw_last+self.next_s_word;
-			console.log("next_s_word is now: "+self.next_s_word);
+			//console.log("next_s_word is now: "+self.next_s_word);
+			//also stick it back on to the greyed out suggestion in the edit-area
 			self.cm.replaceRange(osw_last, {line:self.current_line_num, ch: cursor.ch});
 			self.cm.markText({line:self.current_line_num, ch: cursor.ch}, {line:self.current_line_num, ch: cursor.ch+1}, {className: "suggestion"});
 			self.cm.setCursor({line:self.current_line_num, ch: cursor.ch});
 		}
 	}
+	
+	/******************************** IMAGE *********************************/
+	/** Functions for loading and managing the image of the document page  **/
+	/** Image is (at present) loaded as the background of a canvas element **/
+	/************************************************************************/
+	
+	//load_image(): set-up the image-canvas load the real image to get dimensions
 	this.load_image = function(image) {
 
 		$("#image-canvas").css({background: "none"}).drawText({
@@ -1055,7 +1068,7 @@ function TSX(config) {
 			var img = new Image();
 			//do it this way first... obviously would prefer to keep this data no in the DOM if poss
 			$("#htr_image").html('<img id="source" src="'+image+'"/>');
-
+			//once the image is loaded show image-control and record dimensions
 			$(img).attr('src', image).load(function() {
 
 				$("#image-control").fadeIn();
@@ -1066,10 +1079,11 @@ function TSX(config) {
 	//			console.log(self.canvas_width+" / "+img.width);
 				self.ratio = self.canvas_width/img.width;
 				self.canvas_height = self.ratio*img.height;
-				
+				//Also load transcript
 				self.load_transcript();
 
 				$(this).remove(); // prevent memory leaks as @benweet suggested
+				//use dimensions to better style the <canvas> and init panzoom
 				$("#image-canvas").
 					clearCanvas().
 					css({background: 'url('+image+') no-repeat', 'background-size': '100%', height: self.canvas_height+"px"}).
@@ -1097,18 +1111,11 @@ function TSX(config) {
 						});*/
 			});
 	}
-	//only un-renders it really
-	this.unrender_transcript = function() {
-		if(self.ts_data[self.current_page] === undefined)
-			return false;
-		for(var i =0; i<self.ts_data[self.current_page].length; i++){
-			if(self.cm.getLine(i) === undefined) continue;
-			//remove line or something would be better...? check cm docs when online
-			//console.log(self.cm.getLine(i).length);
-			self.cm.replaceRange("", {line:i, ch: 0},{line:i, ch: self.cm.getLine(i).length});
-		}
 
-	}
+	/******************** TRANSCRIPT *********************/
+	/** Load and manage the transcript(s)				**/
+	/*****************************************************/
+	//load_transcript(): if local stick it in, otherwise see how many transcripts we have
 	this.load_transcript = function() {
 		
 		if(self.local){
@@ -1142,53 +1149,14 @@ function TSX(config) {
 			}
 		}
 	}
-	this.load_transcript_data = function(){
-		self.ts_data[self.current_page] = [];
-		var line = 0;
-		console.log("loading transcript data");
-		$(self.current_transcript).find("TextLine").each(function(){
-			var points = Array();
-			var rec = {x: {max: 0, min: 1.7976931348623157E+10308}, y: {max: 0, min: 1.7976931348623157E+10308}};
-			$(this).find(" > Coords").each(function(){	
-				var coords = $(this).attr("points").split(/ /);
-				for(var i in coords){
-					var co = coords[i].split(/,/);
-					x_adj = co[0]*self.ratio;
-					y_adj = co[1]*self.ratio;
-					points.push({x:x_adj, y:y_adj});
-					/* 
-					//adjust at point of use to check for resized canvas and ratio etc
-					if(x_adj>rec.x.max) rec.x.max = x_adj;
-					if(x_adj<rec.x.min) rec.x.min = x_adj;
-					if(y_adj>rec.y.max) rec.y.max = y_adj;
-					if(y_adj<rec.y.min) rec.y.min = y_adj;
-					*/
-					if(co[0]>rec.x.max) rec.x.max = co[0];
-					if(co[0]<rec.x.min) rec.x.min = co[0];
-					if(co[1]>rec.y.max) rec.y.max = co[1];
-					if(co[1]<rec.y.min) rec.y.min = co[1];
-				}
-			});
-			console.log("loading data for line: "+line+" ("+self.current_page_ref+")");
-			self.ts_data[self.current_page][line] = {
-				text: $(this).find(" > TextEquiv > Unicode").html(), 
-				poly: $(this).find(" > Coords").attr("points"),
-				id: "JB."+self.current_page_ref+"."+$(this).parent("TextRegion").attr("id")+"."+$(this).attr("id"),
-//				id: "JB.115_065_004_02_01",
-				points: points,
-				rec: rec
-			};
-			line+=1;
-		});
-		self.render_transcript();
-	}	
-	this.render_transcript = function (){
-		if(self.mode != "post") return false;
-		for(var i =0; i<self.ts_data[self.current_page].length; i++){
-		//	console.log("rendering line: "+i);
-			self.cm.replaceRange(self.ts_data[self.current_page][i].text+"\n", {line:i, ch: 0});
+	
+	//handle_transcript_list(): in readiness for handling multiple transcript versions
+	this.handle_transcript_list = function(transcripts){
+		for(var i in transcripts){	
+		//	console.log(transcripts[i].url);	
 		}
 	}
+	//handle_transcript(): dload transcript from data_server
 	this.handle_transcript = function(transcript){
 		//console.log(transcript);
 		var url = transcript.url;
@@ -1211,30 +1179,77 @@ function TSX(config) {
 			always(function(){
 //					$("#connection_message").remove();
 			});
-/*
-		$.get(url, {JSESSIONID : self.sessionId}  )
-			.done(function( doc ) {
-				self.current_transcript = doc;
-				self.load_transcript_data();
-			 })
-			  .fail(function( jqxhr, textStatus, error ) {
-				var err = textStatus + ", " + error;
-				console.log( "Request Failed: " + err );
-			});
-*/
 	}
-	this.handle_transcript_list = function(transcripts){
-		for(var i in transcripts){	
-		//	console.log(transcripts[i].url);	
+
+	//load_transcript_data(): parse the transcript data (page XML) into the ts_data object
+	this.load_transcript_data = function(){
+		self.ts_data[self.current_page] = [];
+		var line = 0;
+		console.log("loading transcript data");
+		$(self.current_transcript).find("TextLine").each(function(){
+			var points = Array();
+			var rec = {x: {max: 0, min: 1.7976931348623157E+10308}, y: {max: 0, min: 1.7976931348623157E+10308}};
+			$(this).find(" > Coords").each(function(){	
+				var coords = $(this).attr("points").split(/ /);
+				for(var i in coords){
+					var co = coords[i].split(/,/);
+					x_adj = co[0]*self.ratio;
+					y_adj = co[1]*self.ratio;
+					points.push({x:x_adj, y:y_adj});
+					/* 
+					//adjust at point of use to check for resized canvas and ratio etc
+					if(x_adj>rec.x.max) rec.x.max = x_adj;
+					if(x_adj<rec.x.min) rec.x.min = x_adj;
+					if(y_adj>rec.y.max) rec.y.max = y_adj;
+					if(y_adj<rec.y.min) rec.y.min = y_adj;
+					*/
+					//mins and maxs for rectangles rather than polygons
+					if(co[0]>rec.x.max) rec.x.max = co[0];
+					if(co[0]<rec.x.min) rec.x.min = co[0];
+					if(co[1]>rec.y.max) rec.y.max = co[1];
+					if(co[1]<rec.y.min) rec.y.min = co[1];
+				}
+			});
+//			console.log("loading data for line: "+line+" ("+self.current_page_ref+")");
+			//into the ts_data per page per line you go
+			self.ts_data[self.current_page][line] = {
+				text: $(this).find(" > TextEquiv > Unicode").html(), 
+				poly: $(this).find(" > Coords").attr("points"),
+				id: "JB."+self.current_page_ref+"."+$(this).parent("TextRegion").attr("id")+"."+$(this).attr("id"),
+//				id: "JB.115_065_004_02_01",
+				points: points,
+				rec: rec
+			};
+			line+=1;
+		});
+		self.render_transcript();
+	}
+	//render_transcript(): put the text in the edit-area
+	this.render_transcript = function (){
+		if(self.mode != "post") return false;
+		for(var i =0; i<self.ts_data[self.current_page].length; i++){
+		//	console.log("rendering line: "+i);
+			self.cm.replaceRange(self.ts_data[self.current_page][i].text+"\n", {line:i, ch: 0});
+		}
+	}
+	//unrender_transcript(): take the text out of the edit-area
+	this.unrender_transcript = function() {
+		if(self.ts_data[self.current_page] === undefined)
+			return false;
+		for(var i =0; i<self.ts_data[self.current_page].length; i++){
+			if(self.cm.getLine(i) === undefined) continue;
+			//remove line or something would be better...? check cm docs when online
+			//console.log(self.cm.getLine(i).length);
+			self.cm.replaceRange("", {line:i, ch: 0},{line:i, ch: self.cm.getLine(i).length});
 		}
 
 	}
-	/*
-	this.get_wglist = function (){
-		console.log("I will get the wglist from the "+this.data_server);
-		console.log($("#text-area"));
-	}
-*/
+	
+	/************** UTILITY **************/
+	/** Bentham in the house!			**/
+	/*************************************/
+	
+	//ucfirst... is this the only shonky utility function I've used... that must be a record!
 	function ucfirst(str) {
 	  str += '';
 	  var f = str.charAt(0)
@@ -1242,6 +1257,10 @@ function TSX(config) {
 	  return f + str.substr(1);
 	}
 
+	/************ TRUTH **************/
+	/** 			?			    **/
+	/*********************************/
+	
 /*	function MouseWheelHandler(e) {
 		// cross-browser wheel delta
 		var e = window.event || e;
