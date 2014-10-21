@@ -1,35 +1,53 @@
 ﻿/*
- * jQuery Activity
- * December 20, 2009
- * Corey Hart @ http://www.codenothing.com
+TSX Transcriptorium Crowd-sourcing platform
+Rory McNicholl
+University of London Computer centre
  */
 
 /* TSX "Class" */	
 function TSX(config) {
+
+	//communication config
 	this.data_server = config.data_server;
 	this.data_list = config.data_list;
 	this.htr_server = config.htr_server;
 	this.dia_server = config.dia_server;
+	//session cookie
 	this.sessionId = $.cookie("TSX_session");
+	//flags
 	this.local = false;
 	this.logged_in = false;
 	this.mode = "plain";
 	this.edit_view = "encoded";
-	this.current_doc;
-	this.docs;
-	this.metrics = {};
-	this.cm = undefined;
-	this.ts_data = [];
-	//return, up, down, delete, pageup pagedown
-	this.line_change_keys = [13,38,40,8,33,34];
-	this.accept_keys = [9,32];
-	this.control_keys = [17, 18, 16, 20, 35, 36, 37, 39, 45, 46, 91, 93, 144, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 145, 19, 13,38,40,33,34 ]; //ignore these
 	this.htrConnected = false;
+	
+	//data structures
+	//for the documents tree from the data server
+	this.docs;
+	//for the current selected document
+	this.current_doc;
+	//for transcription data
+	this.ts_data = [];
+	//for metrics
+	this.metrics = {};
+	//for the codeMirror object
+	this.cm = undefined;
+	
+	//Key stroke management
+	//keys that will (potentially) change the line of transcript the cursor is on
+	//return, up, down, delete, pageup, pagedown
+	this.line_change_keys = [13,38,40,8,33,34];
+	//keys for accepting transcription suggestions
+	//tab space (only if at end of word)
+	this.accept_keys = [9,32];
+	//keys to "ignore"
+	this.control_keys = [17, 18, 16, 20, 35, 36, 37, 39, 45, 46, 91, 93, 144, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 145, 19, 13,38,40,33,34 ]; //ignore these
+	//so we don't get all the other this' mixed up
 	self = this;
 
 	//init: check connection to data server
 	// have connection fire afterConnection()
-	// don't have connection: if anauth fire credentials else report error
+	// don't have connection: if unauthorised fire credentials else report error
 	this.init = function (){
 		$("#TSX_main").hide();	
 		$("#login_section").hide();		
@@ -42,7 +60,6 @@ function TSX(config) {
 					self.docs = json;
 					$("#connection_message").remove();
 					self.afterConnection();
-//					self.render_data_list();
 				  })
 				  .fail(function( jqxhr, textStatus, error ) {
 					var err = textStatus + ", " + error;
@@ -50,14 +67,15 @@ function TSX(config) {
 				});
 
 		}else{
-			//check the remote connection	
+			//remote mode: check the remote connection if no session already in action
 			if(self.sessionId != undefined){
 				$.getJSON(  self.data_server+self.data_list, {JSESSIONID: self.sessionId} )
 					.done(function(data, textStatus, jqxhr){
-						self.logged_in = true;
-						self.docs = data;
+						self.logged_in = true; 
+						self.docs = data; 
 						self.afterConnection();
 					}).fail(function(jqxhr,textStatus,error){
+						//session expired or otherwise invalid: fire auth process
 						if(error === 'Unauthorized'){
 							self.credentials();
 						}else{
@@ -68,12 +86,20 @@ function TSX(config) {
 						$("#connection_message").remove();
 					});
 			}else{
+				//have no session so fire auth process
 				self.credentials();
 			}
 		}
 	}
-	//credentials: dialog for getting (ans setting) credentials
-	this.credentials = function(callback){
+	
+	/************** USER AUTH Functions *******************/
+	/** Functions for initial communication and 		 **/
+	/** authentication with data server user management  **/
+	/** etc												 **/
+	/******************************************************/
+	
+	//credentials() show log-in dialog with option to create account
+	this.credentials = function(){
 		 dialog = $( "#dialog-form" ).dialog({
 			autoOpen: false,
 			height: 300,
@@ -96,17 +122,12 @@ function TSX(config) {
 			event.preventDefault();
 			addUser();
 		});
-		dialog.dialog( "open" );
- 
-/*		$( "#login" ).button().on( "click", function() {
-			dialog.dialog( "open" );
-		});
-*/
+		dialog.dialog( "open" ); 
 	}
-	//authenticate: authenticate user credentials against data_server and set cookie
+	//authenticate(): authenticate user credentials against data_server and set cookie
 	this.authenticate = function(){
 		var auth_url = self.data_server+"auth/login_debug";
-		console.log("Logging into Innsbruck with: "+auth_url+" and {user: "+$("#email").val()+", pw: "+$("#password").val()+"}");
+		//console.log("Logging into Innsbruck with: "+auth_url+" and {user: "+$("#email").val()+", pw: "+$("#password").val()+"}");
 
 //		var auth_url = self.data_server+"auth/login";
 		data = {user: $("#email").val(), pw: $("#password").val()};
@@ -117,65 +138,24 @@ function TSX(config) {
 			        withCredentials: true
 			  }} )
 		  .done(function(d) {
-//		    alert( "success" );
-				console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
+				//console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
 				self.sessionId = $(d).find("trpUserLogin sessionId").html();
 				$.cookie("TSX_session", self.sessionId);
-			//	dialog.dialog( "close" );
 				$( "#dialog-form" ).dialog("close");
-				console.log("Have set cookie: "+self.sessionId);
+				//console.log("Have set cookie: "+self.sessionId);
 				self.afterConnection();
 
 		  })
-		  .fail(function(jqxhr,textStatus,error) {				console.log("Fail");
+		  .fail(function(jqxhr,textStatus,error) {
+				console.log("Login Failed");
 				$("#auth_error_message").html("We were unable to authenticate you using the username and password supplied, please try again or create an account if you don't have one.");
-
 		  })
 		  .always(function() {
 		 //   alert( "complete" );
 		  });
-/*		$.ajax({
-			  url: auth_url,	
-//			  type: "POST",
-			  crossDomain: true,
-			  data: data,
-		    	  xhrFields: {
-			        withCredentials: true
-			  },
-			done : function(d){
-				
-				console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
-				self.sessionId = $(d).find("trpUserLogin sessionId").html();
-				$.cookie("TSX_session", self.sessionId);
-			//	dialog.dialog( "close" );
-				$( "#dialog-form" ).dialog("close");
-				console.log("Have set cookie: "+self.sessionId);
-				self.afterConnection();
-			},
-			fail : function(jqxhr,textStatus,error){
-				console.log("Fail");
-				$("#auth_error_message").html("We were unable to authenticate you using the username and password supplied, please try again or create an account if you don't have one.");
-			},
-			always : function(){
-				console.log("Always");
-				}
-			});
-*/
-/*
-		var jqxhr = $.get( auth_url, data, function(d) {
-			console.log("Storing session id: "+$(d).find("trpUserLogin sessionId").html());
-			self.sessionId = $(d).find("trpUserLogin sessionId").html();
-			$.cookie("TSX_session", self.sessionId);
-		//	dialog.dialog( "close" );
-			$( "#dialog-form" ).dialog("close");
-			console.log("Have set cookie: "+self.sessionId);
-			self.afterConnection();
-		}).fail(function(jqxhr,textStatus,error) {
-			$("#auth_error_message").html("We were unable to authenticate you using the username and password supplied, please try again or create an account if you don't have one.");
-		});
-*/		 
-//		?user=trpUser&pw=test123
 	}
+	//addUser(): add new user to data server using if poss same form as log-in
+	//TODO everything
 	this.addUser = function() {
 /*
 	      var valid = true;
@@ -199,92 +179,36 @@ function TSX(config) {
 	      }
 	      return valid;
 */
-    	}
+    }
 
-	this.afterConnection = function(){
-		$("#TSX_main").show(function(){
-			$("#login_section").hide();
-		});
-		self.start_session();	
-		self.init_panels();
-		self.init_mode_handling();	
-		if(self.local){
-			self.render_local_data_list();
-		}else{
-			if(self.docs === undefined){
-				$.ajax({
-  				  url: self.data_server+self.data_list,
-				  data:  {JSESSIONID: self.sessionId},
-				  crossDomain: true,
-				    xhrFields: {
-				        withCredentials: true
-				    }}).
-					done(function(data, textStatus, jqxhr){
-						self.logged_in = true;
-						self.docs = data;
-						self.render_data_list();
-					}).
-					fail(function(jqxhr,textStatus,error){
-						console.log("Connection failure: "+error);
-						alert("Could not connect to data server: "+self.data_server);
-					}).
-					always(function(){
-						$("#connection_message").remove();
-					});
-			}else{
-				self.render_data_list();
-			}
-		}
-	}
-
+		
+	/*************** TSX Session and metrics ****************/
+	/** here we start a user transcription session and 	   **/
+	/** gather metrics on how they use the UI			   **/
+	/********************************************************/
+	
 	function now(){
 		return (new Date).getTime();
 	}
-
+	//start_session(): define areas to track use of, call init idleTimer to gather time-spent data
 	this.start_session = function(){
-		console.log("starting session");
+//		console.log("starting session");
 		self.metrics = {sessionstart : new Date(),
 						subsessions : [],
 						session_index: -1};
+	
 		self.tsx_areas = ["control-column","data-column","edit-column","image-column"];
 						
-		console.log(self.metrics.sessionstart);
-		console.log(self.metrics.sessionstart.getTime());
+//		console.log(self.metrics.sessionstart);
+//		console.log(self.metrics.sessionstart.getTime());
 		for(i in self.tsx_areas){
 			self.init_idleTimer("#"+self.tsx_areas[i]);
 		}
-			//self.init_idleTimer("#data-column");
-	/*	 $.activity.init({
-			// Set interval check to every 5 seconds
-			interval: 1000*5,
-			intervalFn: function(info){
-				console.log('Interval Check - Last Active:', info.lastActive, ', Difference in milliseconds to current time:', info.diff);
-			},
-			// Set inactive check to every 15 seconds
-			inactive: 1000*5*3,
-			inactiveFn: function(info){
-				console.warn('Inactive Triggered - Last Active:', info.lastActive, ', Difference in milliseconds to current time:', info.diff);
-				console.log(self.metrics);
-			}
-		});
-		*/
-/*
-		// Either reactivate, or update the current timestamp when user clicks on the page
-		$(document).on("click keydown", "body", function(e){
-			if(/(^|\s)m-(\w+)(\s|$)/.test($(e.target).attr("class"))){
-				var tsx_area = RegExp.$2;
-				if(self.metrics[tsx_area].start != undefined){
-					self.metrics[tsx_area].elapsed = $.activity.now()-self.metrics[tsx_area].start;
-				}
-				self.metrics[tsx_area].start = $.activity.now()
-			}
-			if ( $.activity.isActive() )
-				$.activity.update();
-			else
-				$.activity.reActivate();
-		});
-*/
 	}
+	//	init_idelTimer(): bind functions to a TSX area that will "timeout" after
+	//	inactivity and more generally keep a clock running so we can record time-spent
+	//	when a) user goes idle or b) user goes to another area
+	//TODO :lots
 	this.init_idleTimer = function(tsx_area_elem){
 		var tsx_area = $(tsx_area_elem).attr("id");
 		//create idleTimer for this tsx_area
@@ -303,135 +227,115 @@ function TSX(config) {
 			console.log("Time spent on "+tsx_area+" is "+subsession.elapsed);
 		});
 
-			//stop idleTimer(s) for other tsx_areas by firing their idle event
-			$( ".column" ).not("#"+tsx_area).each(function(){				
-				if(!$(this).idleTimer("isIdle")){
-					console.log("triggering idleness for "+$(this).attr("id"));
-					var e= new Event("idle.idleTimer");
-					$(this).trigger(e);
-					//need to stop this being triggered again by the idleTimer source (due to idelness)...!!
-				}
-			});
-			console.log("User is active: "+tsx_area);
-			//start the clock for tsx_area... create a sub-session
-			self.metrics.subsession_index++;
-			self.metrics.subsessions[self.metrics.subsession_index] = 
-				{tsx_area: tsx_area, start : now(), elapsed : 0};
-		//});
-	}
-
-	this.render_local_data_list = function(){
-		$("#data-container").append("<div id=\"data-list\"><ul></ul></div>");
-		for( var box_num in self.docs.iids){
-			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">"+box_num+"</li>");
-		}
-
-		$(".box").on("click", function(){
-
-		//console.log("get box contents for "+$(this).attr("id"));
-			var box = self.docs.iids[$(this).attr("id")];
-			$("#data-list ul").empty().addClass("grid");
-			for( var id in box){
-				var thumb = self.data_server+box[id].replace(/JB\./, "tn_") + ".png";
-				$("#data-list ul").append("<li class=\"doc_ref\" id=\""+box[id]+"\"><img src=\""+thumb+"\" title='"+box[id]+"'/>"+box[id]+"</li>");
+		//stop idleTimer(s) for other tsx_areas by firing their idle event
+		$( ".column" ).not("#"+tsx_area).each(function(){				
+			if(!$(this).idleTimer("isIdle")){
+				console.log("triggering idleness for "+$(this).attr("id"));
+				var e= new Event("idle.idleTimer");
+				$(this).trigger(e);
+				//need to stop this being triggered *again* by the idleTimer source (due to idelness)...!!
 			}
-
-			$(".doc_ref").on("click", function(){
-				self.current_page = $(this).attr("id").replace(/JB\./, "");
-				var image = self.data_server+self.current_page + ".jpg";
-				self.load_image(image);
-			});
 		});
-	}
-	this.render_data_list = function(){
+		console.log("User is active: "+tsx_area);
+		//start the clock for tsx_area... create a sub-session
+		self.metrics.subsession_index++;
+		self.metrics.subsessions[self.metrics.subsession_index] = 
+			{tsx_area: tsx_area, start : now(), elapsed : 0};
 
-		$("#data-container").append("<div id=\"data-list\"><ul></ul></div>");
-		for( var i in self.docs){
-			$("#data-list ul").append("<li class=\"batch\" data-docId=\""+self.docs[i].docId+"\">"+self.docs[i].title+"</li>");
-		}
-		$(".batch").on("click", function(){
-			self.current_doc = $(this).attr("data-docId");
-			var url = self.data_server+"docs/"+$(this).attr("data-docId")+"/fulldoc";
-			console.log("HERE");
-			$.ajax({
-  				  url: url,
-//				  type: "GET",
-//				  data:  {JSESSIONID: self.sessionId},
+	}
+	
+	/************ TSX start-up *************/
+	/** initialise the main bits of TSX   **/
+	/***************************************/
+	
+	//afterConnection(): handle post login actions, calling various other init procedures etc
+	this.afterConnection = function(){
+		//show the main, hide the login
+		$("#TSX_main").show(function(){
+			$("#login_section").hide();
+		});
+		//start session (metrics)
+		self.start_session();
+		//show UI panels
+		self.init_panels();
+		//initialise the transcription mode
+		self.init_mode_handling();
+		//if local, we already have the data
+		if(self.local){
+			self.render_local_data_list();
+		}else{
+			//check if we have already picked up the document tree
+			if(self.docs === undefined){
+				//no? lets get it from data_server
+				$.ajax({
+  				  url: self.data_server+self.data_list,
+				  data:  {JSESSIONID: self.sessionId},
 				  crossDomain: true,
 				    xhrFields: {
 				        withCredentials: true
 				    }}).
-					done(function(json, textStatus, jqxhr){
-						console.log("anything");
-
-						self.docs = json;
-						self.render_docs_list();
+					done(function(data, textStatus, jqxhr){
+						self.logged_in = true; //not sure we need this here (will check when have connection)
+						self.docs = data;
+						self.render_data_list();
 					}).
 					fail(function(jqxhr,textStatus,error){
-						var err = textStatus + ", " + error;
-						console.log( "Request Failed: " + err );
+						console.log("Connection failure: "+error);
+						alert("Could not connect to data server: "+self.data_server);
 					}).
 					always(function(){
-//						$("#connection_message").remove();
-						console.log("anything");
+						$("#connection_message").remove();
 					});
-		});
-/*
-			$.getJSON(  url  )
-		  		.done(function( json ) {
-					self.docs = json;
-					self.render_docs_list();
-				  })
-				  .fail(function( jqxhr, textStatus, error ) {
-					var err = textStatus + ", " + error;
-					console.log( "Request Failed: " + err );
-				});
-		});
-*/
-	}
-	this.render_docs_list = function(){
-		var pages = self.docs.pageList.pages;
-	
-		//create fake boxes subdir
-		var boxes = [];
-		for(var i in pages){
-			pages[i].imgFileName.match(/^(\d+)_.+$/);
-			box = RegExp.$1;
-			if(boxes[box] === undefined) boxes[box] = [];
-			boxes[box].push(pages[i]);
-		}	
-		$("#data-list ul").empty();
-		for( var box_num in boxes){
-			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">"+box_num+"</li>");
-		}
-
-		$(".box").on("click", function(){
-
-		//console.log("get box contents for "+$(this).attr("id"));
-			var box = boxes[$(this).attr("id")];
-			$("#data-list ul").empty().addClass("grid");
-			for( var i in box){
-//				$("#data-list ul").append("<li class=\"doc_ref\"rel=\""+box[i].url+"\" data-pageInd="+box[i].pageNr+"><img src=\""+box[i].thumbUrl+"\" title='"+box[i].imgFileName+"'/>"+box[i].imgFileName+"</li>");
-				var page_ref = box[i].imgFileName.replace(/\.\w+$/,"");
-				$("#data-list ul").append("<li class=\"doc_ref\"rel=\""+box[i].url+"\" data-pageInd=\""+i+"\" data-pageRef=\""+page_ref+"\"><img src=\""+box[i].thumbUrl+"\" title='"+box[i].imgFileName+"'/>"+box[i].imgFileName+"</li>");
-
+			}else{
+				self.render_data_list();
 			}
-
-			$(".doc_ref").on("click", function(){
-				self.current_page = $(this).attr("data-pageInd");
-				self.current_page_ref = $(this).attr("data-pageRef");
-				self.load_image($(this).attr("rel"));
-//				self.load_transcript();
-
-			});
-		});
+		}
 	}
-
+	//  init_panels(): prepare and show the four main TSX panels
+	//	control (top) - change mode, toggle other panels, full screen and image zooming
+	//	data (left) - show lists of batches, documents, pages, thumbnails, whatever
+	//	edit (middle) - for editing the transcript
+	//	image (right) - for showing the image of the document/page
+	//	The position of all but control can be changed
+	//  includes lots of action binding here
 	this.init_panels = function(){
-		
+	
+		//make sure mode is consistent with what is in dropdown
 		if($("#mode").val() != undefined){
 			self.mode = $("#mode").val();
 		}
+		//we set up the panels as sortable columns
+		$( "#columns" ).sortable({
+			handle: ".column-header",
+			cancel: ".column-toggle",
+		      	//placeholder: "column-placeholder ui-corner-all",
+			//axis: "x"
+		});
+		$( "#columns .column" )
+			.addClass( "ui-widget ui-widget-content ui-helper-clearfix ui-corner-all" )
+			.find( ".column-header" )
+			.addClass( "ui-widget-header ui-corner-all" )
+			.prepend( "<span class='ui-icon ui-icon-minusthick column-toggle'></span>");
+		//roll- and down panels with - and +
+		$( ".column-toggle" ).click(function() {
+			var icon = $( this );
+			icon.toggleClass( "ui-icon-minusthick ui-icon-plusthick" );
+			icon.closest( ".column" ).find( ".column-content" ).toggle();
+		});
+		
+		//init control_panel
+		self.control_panel(); //hehe the self control panel!!
+		//init data panel
+		self.data_panel();
+		//init image panel
+		self.image_panel();
+		//init edit panel
+		self.edit_panel();
+		
+	}
+
+	this.control_panel = function(){
+		//show the control panel
 		$("#control")
 			.addClass( "ui-widget ui-widget-content ui-helper-clearfix ui-corner-all" )
 			.resizable()
@@ -439,88 +343,60 @@ function TSX(config) {
 			.addClass( "ui-widget-header ui-corner-all" )
 			.prepend( "<span class='ui-icon ui-icon-minusthick column-toggle'></span>");
 		
+		//init the zoom slider (for image zooming)
 		$("#zoom-slider").slider();
-		
-		  $('#fullscreen').on("change", function() {
-				if($.fullscreen.isFullScreen()){
-					$.fullscreen.exit();
-					$('#fullscreen').html("Full screen");
-				}else{
-					$('body').fullscreen();
-					$('#fullscreen').html("Exit full screen");
-				}
-								return false;
+		//set-up the fullscreen button
+		$('#fullscreen').on("change", function() {
+			if($.fullscreen.isFullScreen()){
+				$.fullscreen.exit();
+				$('#fullscreen').html("Full screen");
+			}else{
+				$('body').fullscreen();
+				$('#fullscreen').html("Exit full screen");
+			}
+			return false;
 		}).button();
-		
-		$( "#columns" ).sortable({
-			//    connectWith: ".column",
-			handle: ".column-header",
-			cancel: ".column-toggle",
-		      	//placeholder: "column-placeholder ui-corner-all",
-			//axis: "x"
-		});
-
-		$( "#columns .column" )
-			.addClass( "ui-widget ui-widget-content ui-helper-clearfix ui-corner-all" )
-			.find( ".column-header" )
-			.addClass( "ui-widget-header ui-corner-all" )
-			.prepend( "<span class='ui-icon ui-icon-minusthick column-toggle'></span>");
-
-		$("#data-column, #image-column").resizable();
-		//TODO: refresh cm on resize
-		$("#edit-column").resizable({alsoResize: "#edit-area .CodeMirror"});
-		
-		$( ".column-toggle" ).click(function() {
-			var icon = $( this );
-			icon.toggleClass( "ui-icon-minusthick ui-icon-plusthick" );
-			icon.closest( ".column" ).find( ".column-content" ).toggle();
-		});
+		//buttons for hiding and showing the other panels
 		$( ".panel-view" ).on("change", function() {
 			var panel = $(this).attr("rel");
 			$( "#"+panel ).toggle();
 		}).attr("checked", "check");
+		
 		$("#panel-control").buttonset();
+	}
+	this.data_panel = function(){
+			
+		//make panel resizable
+		$("#data-column").resizable();
+	
+	}
+	this.image_panel = function(){		
+		//make panel resizable
+		$("#image-column").resizable();
+	
+	}
+	this.edit_panel = function(){
+		//make edit panel resizable (but also codeMirror)
+		$("#edit-column").resizable({alsoResize: "#edit-area .CodeMirror"});
 
+		//we use codeMirror to control and manipulate the transcript editing area
 		self.cm = CodeMirror(document.getElementById("edit-area"),{lineNumbers: true});
 		
-		//TODO pickup the cm event 
+		//bind htr communication to edit-area IF we are in interactive mode
 		$("#edit-area").on("mousedown", function(e){
+			//always handle_move when there is a potential line change!
 			self.handle_move();
-			console.log(self.mode+' === "interactive" && '+self.htrSocketPort+' && !'+self.htrConnected);
-
+			
+			//console.log(self.mode+' === "interactive" && '+self.htrSocketPort+' && !'+self.htrConnected);
+			//the conditions are right, lets HTR!
+			//This could not get called if one tabs to the edit-area???? maybe focus would be more appropriate
+			//TODO move this block into a focus()
 			if(self.mode === "interactive" && self.htrSocketPort && !self.htrConnected){
 				self.connect_to_htr(e);
-			}
-
-		});
-		self.cm.on("keydown", function(cm, e){
-			//console.log(e.which);
-			//console.log($.inArray(e.which, self.accept_keys));
-			
-			if(self.mode === "interactive"){
-
-				if($.inArray(e.which, self.accept_keys)>=0){			
-						//tab
-						if(e.which === 9){
-							console.log("tabbing");
-							e.preventDefault(); //why preventDefault not working? because this is codeMirror! we listen for cm.on...
-							self.tab_complete();
-						}
-						//space
-						if(e.which === 32){
-							console.log("spacing");
-							//e.preventDefault(); //why preventDefault not working? because this is codeMirror! we listen for cm.on...
-							self.space_complete();
-						}			
-				}else if($.inArray(e.which, self.control_keys)<0){
-					if(e.which === 8){ //backspace rejects the edit not the suggestion
-						self.reject_edit();
-					}else{
-						self.reject_suggestion();
-					}
-				}
+				self.suggestion_handling();
 			}
 		});
+		
 		$("#edit-area").on("keydown", function(e){
 		
 			//call handle move for a designated set of "action keys" that will move the line
@@ -530,6 +406,160 @@ function TSX(config) {
 			//tab complete
 
 		});
+		self.init_TEI_editing();
+	}
+	
+		
+	
+	/****************** Doc/Data presentation ****************/
+	/** After comms, auth and UI main sorted out we will	**/ 
+	/** access the lists of docs stored on the data server  **/
+	/** and present them to the user in some form			**/
+	/*********************************************************/
+
+	
+	//render_data_list(): render the document tree and bind the "next-step" actions to the batches/folders/directories etc
+	//TODO: doc tree navigation.. eg going back!
+	this.render_data_list = function(){
+
+		//render docs "tree"... tree in the very loosest sense of the word
+		$("#data-container").append("<div id=\"data-list\"><ul></ul></div>");
+		for( var i in self.docs){
+			$("#data-list ul").append("<li class=\"batch\" data-docId=\""+self.docs[i].docId+"\">"+self.docs[i].title+"</li>");
+		}
+		//bind next steps...
+		$(".batch").on("click", function(){
+			//set the chosen document as the current_doc
+			self.current_doc = $(this).attr("data-docId");
+			//get the data on pages and transcripts etc
+			var url = self.data_server+"docs/"+$(this).attr("data-docId")+"/fulldoc";
+			$.ajax({
+  				  url: url,
+				  crossDomain: true,
+				    xhrFields: {
+				        withCredentials: true
+				    }}).
+					done(function(json, textStatus, jqxhr){
+						//hmmm docs has morphed from data-structure for all docs to one for pages/transcripts for a particular doc
+						//TODO check out a suitable name change for this var
+						self.docs = json;
+						//render list of actual docs (ie thumbnails) maybe pages would be a better term?
+						self.render_docs_list();
+					}).
+					fail(function(jqxhr,textStatus,error){
+						var err = textStatus + ", " + error;
+						console.log( "Request Failed: " + err );
+					}).
+					always(function(){
+//						$("#connection_message").remove();
+					});
+		});
+	}
+	//render_local_data_list(): This is a local version of the above
+	//TODO: have this running off same data structures as found in innsbruck
+	this.render_local_data_list = function(){
+		//render list of docs/batches
+		$("#data-container").append("<div id=\"data-list\"><ul></ul></div>");
+		for( var box_num in self.docs.iids){
+			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">"+box_num+"</li>");
+		}
+		//bin next-step functions
+		$(".box").on("click", function(){
+			//which in this case involve building the thumbnails list
+			var box = self.docs.iids[$(this).attr("id")];
+			$("#data-list ul").empty().addClass("grid");
+			for( var id in box){
+				var thumb = self.data_server+box[id].replace(/JB\./, "tn_") + ".png";
+				$("#data-list ul").append("<li class=\"doc_ref\" id=\""+box[id]+"\"><img src=\""+thumb+"\" title='"+box[id]+"'/>"+box[id]+"</li>");
+			}
+			//and binding the image/transcript loading functions
+			$(".doc_ref").on("click", function(){
+				self.current_page = $(this).attr("id").replace(/JB\./, "");
+				var image = self.data_server+self.current_page + ".jpg";
+				self.load_image(image);
+			});
+		});
+	}
+	//render_docs_list(): when in remote mode this will render list of pages (thumbnails) and bind image and transcription loading functions
+	this.render_docs_list = function(){
+		
+		var pages = self.docs.pageList.pages;
+	
+		//create an intermediary "box" level to prevent browsing entire documents (ie hundreds of pages and thumbnails)
+		//This is done by using the first number from the ref with syntax: \d+_\d+_\d+
+		var boxes = [];
+		for(var i in pages){
+			pages[i].imgFileName.match(/^(\d+)_.+$/);
+			box = RegExp.$1;
+			if(boxes[box] === undefined) boxes[box] = [];
+			boxes[box].push(pages[i]);
+		}
+		//clean out the data liist
+		$("#data-list ul").empty();
+		//render it again with the box list
+		for( var box_num in boxes){
+			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">"+box_num+"</li>");
+		}
+		//bind the next-step functions for the box refs
+		//ie rendering the thumbnails for a box
+		$(".box").on("click", function(){
+
+			var box = boxes[$(this).attr("id")];
+			//use .grid class to display thumbs
+			$("#data-list ul").empty().addClass("grid");
+			for( var i in box){
+				//page_ref is what we should be refering to the page as (for HTR server)
+				var page_ref = box[i].imgFileName.replace(/\.\w+$/,"");
+				$("#data-list ul").append("<li class=\"doc_ref\"rel=\""+box[i].url+"\" data-pageInd=\""+i+"\" data-pageRef=\""+page_ref+"\"><img src=\""+box[i].thumbUrl+"\" title='"+box[i].imgFileName+"'/>"+box[i].imgFileName+"</li>");
+
+			}
+			//bind image and transcript loading functions (finally!)
+			$(".doc_ref").on("click", function(){
+				//set choosen as current page
+				self.current_page = $(this).attr("data-pageInd");
+				// and it;s ref as current_page_ref
+				self.current_page_ref = $(this).attr("data-pageRef");
+				//call load_image (this will in turn call load_transcript(s) when done
+				self.load_image($(this).attr("rel"));
+			});
+		});
+	}
+	
+	
+	/**************** EDITING ****************/
+	/** functions for editing transcripts   **/
+	/*****************************************/
+	
+	
+	this.suggestion_handling = function(){
+		//codeMirror keydown event (we must use this to prevent default
+		self.cm.on("keydown", function(cm, e){
+			//console.log(e.which);
+			//console.log($.inArray(e.which, self.accept_keys));			
+			if($.inArray(e.which, self.accept_keys)>=0){			
+					//tab
+					if(e.which === 9){
+						console.log("tabbing");
+						e.preventDefault(); //why preventDefault not working? because this is codeMirror! we listen for cm.on...
+						self.tab_complete();
+					}
+					//space
+					if(e.which === 32){
+						console.log("spacing");
+						//e.preventDefault(); //why preventDefault not working? because this is codeMirror! we listen for cm.on...
+						self.space_complete();
+					}			
+			}else if($.inArray(e.which, self.control_keys)<0){
+				if(e.which === 8){ //backspace rejects the edit not the suggestion
+					self.reject_edit();
+				}else{
+					self.reject_suggestion();
+				}
+			}
+		});
+	}
+	this.init_TEI_editing = function(){
+	//TEI editing:
 		$("#edit-view-switch span#edit-view-"+self.edit_view).css({color: "#000"});
 		$("#edit-view-switch span").on("click", function(){
 				if($(this).attr("id").match(/encoded$/)){
@@ -579,6 +609,7 @@ function TSX(config) {
 			self.cm.addLineClass(to.line, "wrap", "page-"+$(this).attr("id")+"-end");
 		});
 	}
+
 	this.render_visual = function(){
 		if(self.edit_view === "visual"){
 			return;
@@ -621,6 +652,7 @@ function TSX(config) {
 
 		//TODO Switch spans with tei-class for TEI tags
 	}
+	
 	this.handle_move = function(e){
 		
 		var prev_line = self.current_line_num;
@@ -1084,7 +1116,6 @@ function TSX(config) {
 			console.log("Loading transcript: "+url);
 			$.ajax(url, {
 			  crossDomain: true,
-			  data: data,
 		    	  xhrFields: {
 			        withCredentials: true
 			  }} ).
