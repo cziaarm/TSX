@@ -1199,18 +1199,17 @@ function TSX(config) {
 			crossDomain: true,
 			    xhrFields: {
 			        withCredentials: true
-			    },
-				done : function(data, textStatus, jqxhr){
+			    }
+			}).done(function(data, textStatus, jqxhr){
 					self.current_transcript = data;
 					self.load_transcript_data();
-				},
-				fail : function(jqxhr,textStatus,error){
+			}).
+			fail(function(jqxhr,textStatus,error){
 					var err = textStatus + ", " + error;
 					console.log( "Request Failed: " + err );
-				},
-				always : function(){
+			}).
+			always(function(){
 //					$("#connection_message").remove();
-				}
 			});
 /*
 		$.get(url, {JSESSIONID : self.sessionId}  )
