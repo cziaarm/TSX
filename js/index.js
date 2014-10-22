@@ -23,6 +23,8 @@ function TSX(config) {
 	
 	//data structures
 	//for the documents tree from the data server
+	this.data;
+	//this is for the documents fromt he data server
 	this.docs;
 	//for the current selected document
 	this.current_doc;
@@ -57,7 +59,7 @@ function TSX(config) {
 			var local_docs = self.data_server+"index.html";
 			$.getJSON(  local_docs  )
 				.done(function( json ) {
-					self.docs = json;
+					self.data = json;
 					$("#connection_message").remove();
 					self.afterConnection();
 				  })
@@ -72,7 +74,7 @@ function TSX(config) {
 				$.getJSON(  self.data_server+self.data_list, {JSESSIONID: self.sessionId} )
 					.done(function(data, textStatus, jqxhr){
 						self.logged_in = true; 
-						self.docs = data; 
+						self.data = data; 
 						self.afterConnection();
 					}).fail(function(jqxhr,textStatus,error){
 						//session expired or otherwise invalid: fire auth process
@@ -267,7 +269,7 @@ function TSX(config) {
 	//		self.render_local_data_list();
 	//	}else{
 			//check if we have already picked up the document tree
-			if(self.docs === undefined){
+			if(self.data === undefined){
 				//no? lets get it from data_server
 				$.ajax({
   				  url: self.data_server+self.data_list,
@@ -278,7 +280,7 @@ function TSX(config) {
 				    }}).
 					done(function(data, textStatus, jqxhr){
 						self.logged_in = true; //not sure we need this here (will check when have connection)
-						self.docs = data;
+						self.data = data;
 						self.render_data_list();
 					}).
 					fail(function(jqxhr,textStatus,error){
@@ -462,7 +464,7 @@ function TSX(config) {
 		$("#nav-control").html('<p>Data source: <span class="nav_link" id="nav-0">'+self.data_server+'</span></p>');
 		//yuck.. why won't this live bind...
 		$("#nav-0").on("click", function(){
-				self.move_nav(this);
+			self.move_nav(this);
 		});
 	}
 	this.build_nav = function(id, level,ref){
@@ -508,9 +510,9 @@ function TSX(config) {
 		}
 
 		//render docs "tree"... tree in the very loosest sense of the word
-		$("#data-container").append("<div id=\"data-list\"><ul></ul></div>");
-		for( var i in self.docs){
-			$("#data-list ul").append("<li class=\"batch\" data-docId=\""+self.docs[i].docId+"\">"+self.docs[i].title+"</li>");
+		$("#data-container").html("<div id=\"data-list\"><ul></ul></div>");
+		for( var i in self.data){
+			$("#data-list ul").append("<li class=\"batch\" data-docId=\""+self.data[i].docId+"\">"+self.data[i].title+"</li>");
 		}
 		//bind next steps...
 		$(".batch").on("click", function(){
@@ -547,13 +549,11 @@ function TSX(config) {
 	this.render_local_data_list = function(box){
 		//render list of docs/batches
 		$("#data-container").html("<div id=\"data-list\"><ul></ul></div>");
-		console.log("box: "+box);
 		if(box != undefined){
-			console.log("rendering box");
 			self.render_box(box);
 			return;
 		}
-		for( var box_num in self.docs.iids){
+		for( var box_num in self.data.iids){
 			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">Box: "+box_num+"</li>");
 		}
 		//bin next-step functions
@@ -568,7 +568,7 @@ function TSX(config) {
 		//which in this case involve building the thumbnails list
 			self.unload_image();
 			self.unrender_transcript();
-			var box = self.docs.iids[id];
+			var box = self.data.iids[id];
 			$("#data-list ul").empty().addClass("grid");
 			for( var id in box){
 				var thumb = self.data_server+box[id].replace(/JB\./, "tn_") + ".png";
