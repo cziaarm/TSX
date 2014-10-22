@@ -395,8 +395,11 @@ function TSX(config) {
 			//the conditions are right, lets HTR!
 			//This could not get called if one tabs to the edit-area???? maybe focus would be more appropriate
 			//TODO move this block into a focus()
-			if(self.mode === "interactive" && self.htrSocketPort && !self.htrConnected){
-				self.connect_to_htr(e);
+			//TODONE tried that, didn't work...
+			if(self.mode === "interactive"){
+				if(self.htrSocketPort && !self.htrConnected){
+					self.connect_to_htr(e);
+				}
 				self.suggestion_handling();
 			}
 		});
@@ -407,7 +410,6 @@ function TSX(config) {
 			if($.inArray(e.which, self.line_change_keys)>=0){
 				self.handle_move(e);
 			}
-			//tab complete
 
 		});
 		self.init_TEI_editing();
@@ -542,8 +544,6 @@ function TSX(config) {
 				        withCredentials: true
 				    }}).
 					done(function(json, textStatus, jqxhr){
-						//hmmm docs has morphed from data-structure for all docs to one for pages/transcripts for a particular doc
-						//TODO check out a suitable name change for this var
 						self.docs = json;
 						//render list of actual docs (ie thumbnails) maybe pages would be a better term?
 						self.render_docs_list();
@@ -589,6 +589,7 @@ function TSX(config) {
 			}
 			//and binding the image/transcript loading functions
 			$(".doc_ref").on("click", function(){
+				self.prev_page = self.current_page;
 				self.current_page = $(this).attr("id").replace(/JB\./, "");
 				//add to nav
 				self.build_nav(self.current_page,2);
@@ -610,6 +611,7 @@ function TSX(config) {
 
 		$(".doc_ref").on("click", function(){
 			//set choosen as current page
+			self.prev_page = self.current_page;
 			self.current_page = $(this).attr("data-pageInd");
 			//add to nav
 			self.build_nav(self.current_page,3);	
@@ -807,15 +809,13 @@ function TSX(config) {
 
 		//disable the tei visual classes
 		$(".tei-visual").each(function(){
+			$(this).attr("class").match(/.+\s(tei-(.+))-enabled/);
 			
-			var new_class = $(this).attr("class").replace(/(.+\s(.+))-enabled/,RegExp.$1+"-disabled");
-			var new_content = $(this).text();
 			var tei_tag = RegExp.$2;
-//			console.log("new_content: "+new_content);
-	//		console.log("tei_tag: "+tei_tag);
+			var new_content = "<"+tei_tag+">"+$(this).text()+"</"+tei_tag+">";
+			var new_class = $(this).attr("class").replace("-enabled","-disabled");
 			$(this).attr("class", new_class);
-			
-			$(this).html(new_content); //using html to reinsert strips out end tags... ha!
+			$(this).text(new_content);  //use text to insert so we don't encode the tags...
 		});
 		//TODO Switch spans with tei-class for TEI tags
 	}
@@ -1221,7 +1221,8 @@ function TSX(config) {
 					}).
 				fail(function(jqxhr,textStatus,error){
 						var err = textStatus + ", " + error;
-						console.log( "Request Failed: " + err );
+						console.log( "**RequestRequest Failed: " + err );
+						self.unrender_transcript();
 				}).
 				always(function(){
 //					$("#connection_message").remove();
@@ -1264,6 +1265,7 @@ function TSX(config) {
 			fail(function(jqxhr,textStatus,error){
 					var err = textStatus + ", " + error;
 					console.log( "Request Failed: " + err );
+					self.unrender_transcript();
 			}).
 			always(function(){
 //					$("#connection_message").remove();
@@ -1314,9 +1316,9 @@ function TSX(config) {
 		self.render_transcript();
 	}
 	//render_transcript(): put the text in the edit-area
-	//TODO: remove old transcript from cm before rendering new one
 	this.render_transcript = function (){
 		if(self.mode != "post") return false;
+		self.unrender_transcript();
 		for(var i =0; i<self.ts_data[self.current_page].length; i++){
 		//	console.log("rendering line: "+i);
 			self.cm.replaceRange(self.ts_data[self.current_page][i].text+"\n", {line:i, ch: 0});
@@ -1324,14 +1326,25 @@ function TSX(config) {
 	}
 	//unrender_transcript(): take the text out of the edit-area
 	this.unrender_transcript = function() {
-		if(self.ts_data[self.current_page] === undefined)
+		
+		//no current page
+		if(self.current_page === undefined && self.prev_page === undefined)
 			return false;
-		for(var i =0; i<self.ts_data[self.current_page].length; i++){
-			if(self.cm.getLine(i) === undefined) continue;
-			//remove line or something would be better...? check cm docs when online
-			//console.log(self.cm.getLine(i).length);
-			self.cm.replaceRange("", {line:i, ch: 0},{line:i, ch: self.cm.getLine(i).length});
+		//have we changed page or mode?
+		if(self.mode != "post"){ //mode
+			page_to_clear = self.current_page;
+			//console.log("using current");
+		}else if(self.prev_page != undefined && self.ts_data[self.prev_page] != undefined){
+			page_to_clear = self.prev_page;
+			//console.log("using prev");
+		}else{
+			return false;
 		}
+		
+		self.cm.replaceRange("", 
+				{line:0, ch: 0}, //from
+				{line:self.ts_data[page_to_clear].length, ch: self.cm.getLine(self.ts_data[page_to_clear].length-1).length} //to
+			);	
 	}
 	
 	/************** UTILITY **************/
