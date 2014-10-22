@@ -37,7 +37,6 @@
 /*************************/
 /* The panels */
 
-
 #control{
 	width: 100%;
 	margin: 0 0 1em 0;
@@ -63,9 +62,14 @@
 }
 /*************************/
 /* Control panel */
-div#mode-control{
+
+div#control-column {
+		margin-bottom: 0;
+}
+div#mode-control {
 	width: 40%;
 	float:left;
+	margin-bottom: 1em;
 }
 div#panel-control{
 	width: 20%;
@@ -76,6 +80,9 @@ div#image-control{
 	width: 30%;
 	float: right;
 }
+div#nav-control {
+	clear:both;
+}
 #zoom-in{
  padding: 0 1px 3px 0;
 }
@@ -85,15 +92,36 @@ div#image-control{
 #control-container .ui-button-text{
 	font-size: 90%;
 }
-
+#control-column > div.column-content {
+	padding-bottom: 0;
+}
 
 #control .ui-buttonset .ui-button{
 	/*margin: 0;*/
 }
+#nav-control span:hover{
+	background-color: #eee;
+	cursor: pointer;
+}
+
 /******************/
 /*Data panel */
 
-ul.grid {
+#data-list ul{
+	margin:0 0 0 2em;
+	padding:0;
+}
+#data-list li{
+	list-style-type: none;
+	cursor: pointer;
+	border-bottom: 1px dotted #ccc;
+	padding-top: 0.6em;
+}
+#data-list li:hover{
+	background-color: #eee;
+}
+#data-list ul.grid {
+	margin:0;
 
     -moz-column-count: 3;
     -moz-column-gap: 1em;
