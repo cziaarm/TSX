@@ -216,27 +216,27 @@ function TSX(config) {
 			timeout:5000,
 			events: "mousedown keydown",
 			idle: true,
-       		});
+       	});
 
 		//.idleTimer("pause");
 		 $( tsx_area_elem ).on( "idle.idleTimer", function(event, elem, obj){
 			// function you want to fire when the user goes idle
-			console.log("User is idle: "+tsx_area);
+		//	console.log("User is idle: "+tsx_area);
 			var subsession = self.metrics.subsessions[self.metrics.subsession_index];
 			subsession.elapsed = now()-subsession.start;
-			console.log("Time spent on "+tsx_area+" is "+subsession.elapsed);
+		//	console.log("Time spent on "+tsx_area+" is "+subsession.elapsed);
 		});
 
 		//stop idleTimer(s) for other tsx_areas by firing their idle event
 		$( ".column" ).not("#"+tsx_area).each(function(){				
 			if(!$(this).idleTimer("isIdle")){
-				console.log("triggering idleness for "+$(this).attr("id"));
+		//		console.log("triggering idleness for "+$(this).attr("id"));
 				var e= new Event("idle.idleTimer");
 				$(this).trigger(e);
 				//need to stop this being triggered *again* by the idleTimer source (due to idelness)...!!
 			}
 		});
-		console.log("User is active: "+tsx_area);
+		//console.log("User is active: "+tsx_area);
 		//start the clock for tsx_area... create a sub-session
 		self.metrics.subsession_index++;
 		self.metrics.subsessions[self.metrics.subsession_index] = 
@@ -260,10 +260,12 @@ function TSX(config) {
 		self.init_panels();
 		//initialise the transcription mode
 		self.init_mode_handling();
+		//render the header and nav for the data and docs
+		self.render_data_header();
 		//if local, we already have the data
-		if(self.local){
-			self.render_local_data_list();
-		}else{
+	//	if(self.local){
+	//		self.render_local_data_list();
+	//	}else{
 			//check if we have already picked up the document tree
 			if(self.docs === undefined){
 				//no? lets get it from data_server
@@ -289,7 +291,7 @@ function TSX(config) {
 			}else{
 				self.render_data_list();
 			}
-		}
+		//}
 	}
 	//  init_panels(): prepare and show the four main TSX panels
 	//	control (top) - change mode, toggle other panels, full screen and image zooming
@@ -453,13 +455,57 @@ function TSX(config) {
 	/****************** Doc/Data presentation ****************/
 	/** After comms, auth and UI main sorted out we will	**/ 
 	/** access the lists of docs stored on the data server  **/
-	/** and present them to the user in some form		**/
+	/** and present them to the user in some form		    **/
 	/*********************************************************/
+		
+	this.render_data_header = function(){
+		$("#nav-control").html('<p>Data source: <span class="nav_link" id="nav-0">'+self.data_server+'</span></p>');
+		//yuck.. why won't this live bind...
+		$("#nav-0").on("click", function(){
+				self.move_nav(this);
+		});
+	}
+	this.build_nav = function(id, level,ref){
+			console.log("building nav for "+id+" - "+level);
+			if($("#nav-control p").find("#nav-"+level).length ==0){
+				$("#nav-control p").append('<span class="nav_link" id="nav-'+level+'" data-ref="'+id+'">:'+id+'</span>');
+				$("#nav-"+level).on("click", function(){
+					self.move_nav(this);
+				});
+			}else{
+				$("#nav-control p #nav-"+level).html(':'+id);
+			}
+	}
+	this.move_nav = function(nav_link){
+		var level =  parseInt($(nav_link).attr("id").replace(/^nav-/,""));
+		var id =  $(nav_link).attr("data-ref");
 
-	
+		$("#nav-control span").each(function(){
+			if(parseInt($(this).attr("id").replace(/^nav-/,"")) > level){
+				$(this).remove();
+			}
+		});
+		//differences in local / remote data structures....
+		//remote root:batches:boxes:images
+		//local root:boxes:images
+		switch(level){
+			case 0 : self.render_data_list(); break;
+			case 1 : self.render_data_list(id); break;
+			case 2 : if(self.local) self.load_image(); else self.render_docs_list(); break;
+			case 3 : self.load_image(); break;
+			default : console.log("level not catered for");
+		}
+	}
 	//render_data_list(): render the document tree and bind the "next-step" actions to the batches/folders/directories etc
-	//TODO: doc tree navigation.. eg going back!
-	this.render_data_list = function(){
+	this.render_data_list = function(box){
+		
+		self.unload_image();
+		self.unrender_transcript();
+		
+		if(self.local){
+			self.render_local_data_list(box);
+			return;
+		}
 
 		//render docs "tree"... tree in the very loosest sense of the word
 		$("#data-container").append("<div id=\"data-list\"><ul></ul></div>");
@@ -470,6 +516,8 @@ function TSX(config) {
 		$(".batch").on("click", function(){
 			//set the chosen document as the current_doc
 			self.current_doc = $(this).attr("data-docId");
+			//add to nav
+			self.build_nav($(this).attr("data-docId"),1);
 			//get the data on pages and transcripts etc
 			var url = self.data_server+"docs/"+$(this).attr("data-docId")+"/fulldoc";
 			$.ajax({
@@ -496,16 +544,31 @@ function TSX(config) {
 	}
 	//render_local_data_list(): This is a local version of the above
 	//TODO: have this running off same data structures as found in innsbruck
-	this.render_local_data_list = function(){
+	this.render_local_data_list = function(box){
 		//render list of docs/batches
-		$("#data-container").append("<div id=\"data-list\"><ul></ul></div>");
+		$("#data-container").html("<div id=\"data-list\"><ul></ul></div>");
+		console.log("box: "+box);
+		if(box != undefined){
+			console.log("rendering box");
+			self.render_box(box);
+			return;
+		}
 		for( var box_num in self.docs.iids){
-			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">"+box_num+"</li>");
+			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">Box: "+box_num+"</li>");
 		}
 		//bin next-step functions
 		$(".box").on("click", function(){
-			//which in this case involve building the thumbnails list
-			var box = self.docs.iids[$(this).attr("id")];
+			//add to nav
+			self.build_nav($(this).attr("id"),1);
+			self.render_box($(this).attr("id"));
+		
+		});
+	}
+	this.render_box = function(id){
+		//which in this case involve building the thumbnails list
+			self.unload_image();
+			self.unrender_transcript();
+			var box = self.docs.iids[id];
 			$("#data-list ul").empty().addClass("grid");
 			for( var id in box){
 				var thumb = self.data_server+box[id].replace(/JB\./, "tn_") + ".png";
@@ -514,10 +577,11 @@ function TSX(config) {
 			//and binding the image/transcript loading functions
 			$(".doc_ref").on("click", function(){
 				self.current_page = $(this).attr("id").replace(/JB\./, "");
+				//add to nav
+				self.build_nav(self.current_page,2);
 				var image = self.data_server+self.current_page + ".jpg";
 				self.load_image(image);
 			});
-		});
 	}
 	//render_docs_list(): when in remote mode this will render list of pages (thumbnails) and bind image and transcription loading functions
 	this.render_docs_list = function(){
@@ -537,7 +601,7 @@ function TSX(config) {
 		$("#data-list ul").empty();
 		//render it again with the box list
 		for( var box_num in boxes){
-			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">"+box_num+"</li>");
+			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">Box: "+box_num+"</li>");
 		}
 		//bind the next-step functions for the box refs
 		//ie rendering the thumbnails for a box
@@ -1114,7 +1178,10 @@ function TSX(config) {
 						});*/
 			});
 	}
-
+	//load_image(): set-up the image-canvas load the real image to get dimensions
+	this.unload_image = function() {
+		$("#image-canvas").css({"background-image" : "none"});
+	}
 	/******************** TRANSCRIPT *********************/
 	/** Load and manage the transcript(s)				**/
 	/*****************************************************/
@@ -1228,6 +1295,7 @@ function TSX(config) {
 		self.render_transcript();
 	}
 	//render_transcript(): put the text in the edit-area
+	//TODO: remove old transcript from cm before rendering new one
 	this.render_transcript = function (){
 		if(self.mode != "post") return false;
 		for(var i =0; i<self.ts_data[self.current_page].length; i++){
@@ -1245,7 +1313,6 @@ function TSX(config) {
 			//console.log(self.cm.getLine(i).length);
 			self.cm.replaceRange("", {line:i, ch: 0},{line:i, ch: self.cm.getLine(i).length});
 		}
-
 	}
 	
 	/************** UTILITY **************/
@@ -1272,11 +1339,7 @@ function TSX(config) {
 		return false;
 	}
 */
-
 }
-
-
-
 
 //Store images and xml in wiki?
 	//http://en.wikipedia.org/wiki/Help:File_page
