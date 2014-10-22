@@ -469,6 +469,7 @@ function TSX(config) {
 	}
 	this.build_nav = function(id, level,ref){
 			console.log("building nav for "+id+" - "+level);
+
 			if($("#nav-control p").find("#nav-"+level).length ==0){
 				$("#nav-control p").append('<span class="nav_link" id="nav-'+level+'" data-ref="'+id+'">:'+id+'</span>');
 				$("#nav-"+level).on("click", function(){
@@ -490,25 +491,32 @@ function TSX(config) {
 		//differences in local / remote data structures....
 		//remote root:batches:boxes:images
 		//local root:boxes:images
+		//not the most dynamic system on the block
+		console.log(level);
 		switch(level){
 			case 0 : self.render_data_list(); break;
 			case 1 : self.render_data_list(id); break;
 			case 2 : if(self.local) self.load_image(); else self.render_docs_list(); break;
-			case 3 : self.load_image(); break;
+			case 3 : self.render_docs_list(id); break;
 			default : console.log("level not catered for");
 		}
 	}
 	//render_data_list(): render the document tree and bind the "next-step" actions to the batches/folders/directories etc
-	this.render_data_list = function(box){
+	this.render_data_list = function(id){
 		
 		self.unload_image();
 		self.unrender_transcript();
 		
 		if(self.local){
-			self.render_local_data_list(box);
+			self.render_local_data_list(id);
 			return;
 		}
 
+		if(id != undefined){
+			self.render_batch(id);
+			return;
+		}
+	
 		//render docs "tree"... tree in the very loosest sense of the word
 		$("#data-container").html("<div id=\"data-list\"><ul></ul></div>");
 		for( var i in self.data){
@@ -520,8 +528,13 @@ function TSX(config) {
 			self.current_doc = $(this).attr("data-docId");
 			//add to nav
 			self.build_nav($(this).attr("data-docId"),1);
+			self.render_batch(self.current_doc);
+		});
+	}
+
+	this.render_batch = function(id){
 			//get the data on pages and transcripts etc
-			var url = self.data_server+"docs/"+$(this).attr("data-docId")+"/fulldoc";
+			var url = self.data_server+"docs/"+id+"/fulldoc";
 			$.ajax({
   				  url: url,
 				  crossDomain: true,
@@ -542,7 +555,7 @@ function TSX(config) {
 					always(function(){
 //						$("#connection_message").remove();
 					});
-		});
+	
 	}
 	//render_local_data_list(): This is a local version of the above
 	//TODO: have this running off same data structures as found in innsbruck
@@ -550,7 +563,7 @@ function TSX(config) {
 		//render list of docs/batches
 		$("#data-container").html("<div id=\"data-list\"><ul></ul></div>");
 		if(box != undefined){
-			self.render_box(box);
+			self.render_local_box(box);
 			return;
 		}
 		for( var box_num in self.data.iids){
@@ -560,11 +573,11 @@ function TSX(config) {
 		$(".box").on("click", function(){
 			//add to nav
 			self.build_nav($(this).attr("id"),1);
-			self.render_box($(this).attr("id"));
+			self.render_local_box($(this).attr("id"));
 		
 		});
 	}
-	this.render_box = function(id){
+	this.render_local_box = function(id){
 		//which in this case involve building the thumbnails list
 			self.unload_image();
 			self.unrender_transcript();
@@ -583,6 +596,29 @@ function TSX(config) {
 				self.load_image(image);
 			});
 	}
+	this.render_box = function(id){
+		var box = self.boxes[id];
+		//use .grid class to display thumbs
+		$("#data-list ul").empty().addClass("grid");
+		for( var i in box){
+			//page_ref is what we should be refering to the page as (for HTR server)
+			var page_ref = box[i].imgFileName.replace(/\.\w+$/,"");
+			$("#data-list ul").append("<li class=\"doc_ref\"rel=\""+box[i].url+"\" data-pageInd=\""+i+"\" data-pageRef=\""+page_ref+"\"><img src=\""+box[i].thumbUrl+"\" title='"+box[i].imgFileName+"'/>"+box[i].imgFileName+"</li>");
+
+		}
+		//bind image and transcript loading functions (finally!)
+
+		$(".doc_ref").on("click", function(){
+			//set choosen as current page
+			self.current_page = $(this).attr("data-pageInd");
+			//add to nav
+			self.build_nav(self.current_page,3);	
+			// and it's ref as current_page_ref
+			self.current_page_ref = $(this).attr("data-pageRef");
+			//call load_image (this will in turn call load_transcript(s) when done
+			self.load_image($(this).attr("rel"));
+		});
+	}
 	//render_docs_list(): when in remote mode this will render list of pages (thumbnails) and bind image and transcription loading functions
 	this.render_docs_list = function(){
 		
@@ -590,41 +626,24 @@ function TSX(config) {
 	
 		//create an intermediary "box" level to prevent browsing entire documents (ie hundreds of pages and thumbnails)
 		//This is done by using the first number from the ref with syntax: \d+_\d+_\d+
-		var boxes = [];
+		self.boxes = [];
 		for(var i in pages){
 			pages[i].imgFileName.match(/^(\d+)_.+$/);
 			box = RegExp.$1;
-			if(boxes[box] === undefined) boxes[box] = [];
-			boxes[box].push(pages[i]);
+			if(self.boxes[box] === undefined) self.boxes[box] = [];
+			self.boxes[box].push(pages[i]);
 		}
 		//clean out the data liist
-		$("#data-list ul").empty();
+		$("#data-list ul").empty().removeClass("grid");
 		//render it again with the box list
-		for( var box_num in boxes){
+		for( var box_num in self.boxes){
 			$("#data-list ul").append("<li class=\"box\" id=\""+box_num+"\">Box: "+box_num+"</li>");
 		}
 		//bind the next-step functions for the box refs
 		//ie rendering the thumbnails for a box
 		$(".box").on("click", function(){
-
-			var box = boxes[$(this).attr("id")];
-			//use .grid class to display thumbs
-			$("#data-list ul").empty().addClass("grid");
-			for( var i in box){
-				//page_ref is what we should be refering to the page as (for HTR server)
-				var page_ref = box[i].imgFileName.replace(/\.\w+$/,"");
-				$("#data-list ul").append("<li class=\"doc_ref\"rel=\""+box[i].url+"\" data-pageInd=\""+i+"\" data-pageRef=\""+page_ref+"\"><img src=\""+box[i].thumbUrl+"\" title='"+box[i].imgFileName+"'/>"+box[i].imgFileName+"</li>");
-
-			}
-			//bind image and transcript loading functions (finally!)
-			$(".doc_ref").on("click", function(){
-				//set choosen as current page
-				self.current_page = $(this).attr("data-pageInd");
-				// and it;s ref as current_page_ref
-				self.current_page_ref = $(this).attr("data-pageRef");
-				//call load_image (this will in turn call load_transcript(s) when done
-				self.load_image($(this).attr("rel"));
-			});
+			self.build_nav($(this).attr("id"),2);
+			self.render_box($(this).attr("id"));	
 		});
 	}
 	
