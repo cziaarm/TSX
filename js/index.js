@@ -34,6 +34,8 @@ function TSX(config) {
 	this.metrics = {};
 	//for the codeMirror object
 	this.cm = undefined;
+	//keep unqiue id for marked test...
+	this.mark_id = 0;
 	
 	//Key stroke management
 	//keys that will (potentially) change the line of transcript the cursor is on
@@ -382,6 +384,7 @@ function TSX(config) {
 	this.edit_panel = function(){
 		//make edit panel resizable (but also codeMirror)
 		$("#edit-column").resizable({alsoResize: "#edit-area .CodeMirror"});
+		$("#edit-tools").buttonset();
 
 		//we use codeMirror to control and manipulate the transcript editing area
 		self.cm = CodeMirror(document.getElementById("edit-area"),{lineNumbers: true});
@@ -733,7 +736,7 @@ function TSX(config) {
 		
 		//editing mode (ie encoded or visual) switch
 		$("#edit-view-switch span#edit-view-"+self.edit_view).css({color: "#000"});
-		
+		self.textMarks = {};
 		$("#edit-view-switch span").on("click", function(){
 				if($(this).attr("id").match(/encoded$/)){
 					$("#edit-view-switch span#edit-view-encoded").css({color: "#000"});
@@ -760,43 +763,96 @@ function TSX(config) {
 			//offset the text to mark according to the tei_tags...
 			to.ch += (tei_tags.o.length+tei_tags.c.length);
 			//mark text with the disbaled version of the tei visual class
-			self.cm.markText(from, to, {className: "tei-visual tei-"+$(this).attr("id")+"-disabled"});
+			var mark_id = "vis-"+self.mark_id;
+			var tm_obj = self.cm.markText(from, to, {className: "tei-visual tei-"+$(this).attr("id")+"-disabled "+mark_id});
+			self.mark_id++;
+			self.textMarks[mark_id] = tm_obj;
 		});
 		
-		//buggy and this is a visual thing...
+		//buggy and this is a visual 	thing...
 		//TODO make this encoded ie ,<p>s and <lb/>s
+		//We'll disable the layout tags for now
+		$(".page-format").button("disable");
 		$(".page-format").on("click",function(){
+		
 			var text = self.cm.getSelection();
 			var from = self.cm.getCursor("from");
 			var to = self.cm.getCursor("to");
+			var tei_tags = {o: "<"+$(this).attr("id")+">", c: "</"+$(this).attr("id")+">"}; 			
+			self.cm.replaceRange(tei_tags.o,from);
+			self.cm.replaceRange(tei_tags.c,to);
+			
 			//in the <pre> (or do we build/amend the "page" data structure as we go along)
-			self.cm.addLineClass(from.line, "text", "page-"+$(this).attr("id")+"-start");
-			self.cm.addLineClass(to.line, "text", "page-"+$(this).attr("id")+"-end");
-			//also in the wrapping element for visual effect
-			self.cm.addLineClass(from.line, "wrap", "page-"+$(this).attr("id")+"-start");
-			self.cm.addLineClass(to.line, "wrap", "page-"+$(this).attr("id")+"-end");
+			self.cm.addLineClass(from.line, "text", "page-"+$(this).attr("id")+"-start-disabled");
+			self.cm.addLineClass(to.line, "text", "page-"+$(this).attr("id")+"-end-disabled");
+			var mark_id = "vis-"+self.mark_id;
+			var multiline = "";
+			if(from.line != to.line) multiline = "multiline";
+			var tm_obj = self.cm.markText(from, to, {className: "tei-visual tei-"+$(this).attr("id")+"-disabled "+mark_id+" "+multiline, startStyle: "page-"+$(this).attr("id")+"-start-disabled", endStyle: "page-"+$(this).attr("id")+"-end-disabled"});
+			self.mark_id++;
+			self.textMarks[mark_id] = tm_obj;
+			
 		});
 	}
 	//render_visual()
+	//TODO handle embedded tags... 
 	this.render_visual = function(){
 		if(self.edit_view === "visual"){
 			return;
 		}
 		self.edit_view = "visual";
-//		console.log("rendering visual");
-		//nip through the spans that have been marked already and enable their dormant tei visual classes
-		$(".tei-visual").each(function(){
+		console.log("rendering visual");
+		//nip through the textMarks object and enable their dormant tei visual classes
+		for(var mark_id in self.textMarks){
+			var mark = self.textMarks[mark_id];
+			var ele = "."+mark_id;
+			$(ele).attr("class").match(/.+\s(tei-(.+))-disabled/);
+			var tei_tag = RegExp.$2;
+			var new_content = $(ele).text().replace(/(<[^>]+>)/g,"");
+			//TODO: handle void tags
+		
+		//	console.log("new_content: "+new_content);
+		//	console.log("old_content: "+$(ele).text());
+				
+			var from = mark.find().from;
+			var to = mark.find().to;
 			
-			var new_class = $(this).attr("class").replace(/-disabled/,"-enabled");
-			var new_content = $(this).text().replace(/(<[^>]+>)/g,"");
-			//console.log("new_content: "+new_content);
-			//console.log(RegExp.$1);
-			$(this).attr("class", new_class);
+			//never used as disabled (see above)
+			if($(ele).hasClass("multiline")){
+				console.log("multiline");
+				
+				//first case... a page formatting thing that will do things at just the beginning and end... (like <p>)
+				mark_to = {line: from.line, ch: null};
+				//also in the wrapping element for visual effect
+//				var tm_obj = self.cm.markText(from, mark_to, {className: "tei-visual tei-"+tei_tag+"-enabled "+mark_id});
+				self.cm.addLineClass(from.line, "text", "page-"+tei_tag+"-start-enabled");
+				//self.cm.addLineClass(to.line, "wrap", "page-"+$(this).attr("id")+"-end");
 			
-			$(this).html(new_content); //using html to reinsert strips out end tags... ha!
+			}else{
+				mark_to = {line: to.line, ch: from.ch+new_content.length}; //we've removed the tags so recalc the end of the range
+				//must cm.replaceRange otherwise cm gets moody
+				self.cm.replaceRange(new_content,from, to);
+				//this means that the text must be re-marked...
+				var tm_obj = self.cm.markText(from, mark_to, {className: "tei-visual tei-"+tei_tag+"-enabled "+mark_id});
+				//and the new mark overwrites the record in self.textMarks...
+				self.textMarks[mark_id] = tm_obj;
+			}
+
+		}
+//		});
+		
+		//visual editing:
+		//visual styling
+		$("div.codeMirror-code").addClass("visual");
+		//disable the tei edit buttons (for now)
+		$("#edit-tools").buttonset("disable");
+		//fade out the gutter and line numbers
+		$(self.cm.getGutterElement()).fadeOut();
+		$(".CodeMirror-gutter-elt").fadeOut(function(){
+			//move the text over the bit that the gutter was occupying
+			$(".CodeMirror-code > div > pre").css({left: "-"+$(".CodeMirror-gutter-elt").width()+"px"});
 		});
 		
-		//TODO: Switch TEI tags for spans with tei-class
 	}
 	//render_encoded()
 	this.render_encoded = function(){
@@ -805,29 +861,53 @@ function TSX(config) {
 			return;
 		}
 		self.edit_view = "encoded";
-		//console.log("rendering encoded");					
+		console.log("rendering encoded");
 
 		//disable the tei visual classes
-		$(".tei-visual").each(function(){
-			$(this).attr("class").match(/.+\s(tei-(.+))-enabled/);
+		for(var mark_id in self.textMarks){
+			var mark = self.textMarks[mark_id];
+			var ele = "."+mark_id;
+						
+			var from = mark.find().from;
+			var to = mark.find().to;
 			
+			$(ele).attr("class").match(/.+\s(tei-(.+))-enabled/);
 			var tei_tag = RegExp.$2;
-			var new_content = "<"+tei_tag+">"+$(this).text()+"</"+tei_tag+">";
-			var new_class = $(this).attr("class").replace("-enabled","-disabled");
-			$(this).attr("class", new_class);
-			$(this).text(new_content);  //use text to insert so we don't encode the tags...
-		});
-		//TODO Switch spans with tei-class for TEI tags
+			var new_content = "<"+tei_tag+">"+$(ele).text()+"</"+tei_tag+">";
+			var mark_to = {line: to.line, ch: from.ch+new_content.length}; //we've removed the tags so recalc the end of the range
+		
+			//must cm.replaceRange otherwise cm gets moody
+			self.cm.replaceRange(new_content,from, to);
+			//this means that the text must be re-marked...
+			console.log("to: "+mark_to.ch);
+			var tm_obj = self.cm.markText(from, mark_to, {className: "tei-visual tei-"+tei_tag+"-disabled "+mark_id});
+			//and the new mark overwrites the record in self.textMarks...
+			self.textMarks[mark_id] = tm_obj;
+
+		}
+		//encoded editing:
+		//default font
+		$("div.codeMirror-code").removeClass("visual");
+		//enable buttons
+		$("#edit-tools").buttonset("enable");
+		//move text to make room for...
+		$(".CodeMirror-code > div > pre").css({left: "0px"});
+		//the gutter with the linenumbers
+		$(self.cm.getGutterElement()).fadeIn();
+		$(".CodeMirror-gutter-elt").fadeIn();
+		
 	}
 
 	/*********************** HTR *************************/
 	/** Function for handling the connecction to the    **/
-	/** HTR server and suggestions etc		    **/
+	/** HTR server and suggestions etc		            **/
 	/*****************************************************/
 
 	//init_htr() = set up the bits of DOM that will request and respond to HTR
 	this.init_htr = function(){
 		console.log("INIT HTR");
+				console.log("HERE: "+self.current_page);
+
 		if(self.local) return;
 		if(self.mode != "interactive") return;
 
@@ -837,9 +917,6 @@ function TSX(config) {
   
 		// Check HTR engine availability.
 		self.getAvailableSocket();
-		//TODO: insert here (or after have socket) a check for presence of associated HTR data 
-		//(using http://transcriptorium.eu/demots/corpora/bentham/JB.002_080_001.json)
-	
 	}
 	// getAvailableSocket() gets a valid port to usse for HTR socket
 	this.getAvailableSocket = function(){
@@ -867,7 +944,11 @@ function TSX(config) {
 	// htr_target
 	this.connect_to_htr = function(ev) {
 	    console.log("Connecting...");
-	    
+
+		//TODO: insert here (or after have socket) a check for presence of associated HTR data (can also normalise dodgy refs here)
+		//(using http://transcriptorium.eu/demots/corpora/bentham/JB.002_080_001.json)
+		console.log("http://transcriptorium.eu/demots/corpora/bentham/JB.002_080_001.json");
+		console.log("HERE: "+self.current_page_ref);
 	    // Setup the jQuery editable plugin.
 		var $target = $('#htr_target');
 
@@ -1340,7 +1421,8 @@ function TSX(config) {
 		}else{
 			return false;
 		}
-		
+
+		if(self.cm.getLine(self.ts_data[page_to_clear]) === undefined) return false;
 		self.cm.replaceRange("", 
 				{line:0, ch: 0}, //from
 				{line:self.ts_data[page_to_clear].length, ch: self.cm.getLine(self.ts_data[page_to_clear].length-1).length} //to
