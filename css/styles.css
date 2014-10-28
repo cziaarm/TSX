@@ -151,8 +151,9 @@ div#edit-area {
 }
 div#edit-tools button {
 	font-size: 60%;
-	margin: 0px;
+	float: left;
 }
+
 .tei-underline-enabled{
 	text-decoration: underline;
 }
@@ -200,6 +201,9 @@ div#edit-area{
 }
 .suggestion {
 	color: #ccc;
+}
+.visual {
+	font-family: sans-serif;
 }
 /**************************/
 
