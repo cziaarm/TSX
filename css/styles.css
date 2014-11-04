@@ -222,7 +222,11 @@ div#edit-area{
 	display: none;
 }
 #htr_target {
-	display: none;
+	display: block;
+	width: 100px;
+	height: 100px;
+	border: 1px solid red;
+	/*display: none;*/
 }
 
 /*
