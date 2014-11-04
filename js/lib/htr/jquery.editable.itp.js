@@ -118,12 +118,13 @@
         if (itpRes.doTriggerConnect) itpServer.trigger('connect');
 
         itpCount++;
-        //console.log("**** CREATE ****", itpCount);
+        console.log("**** CREATE ****", itpCount);
       });
     },
 
     destroy: function() {
       return this.each(function() {
+
         var $this = $(this);
         if ($this.data(namespace)) {
           var $source = $this.data(namespace).$source;
@@ -135,7 +136,7 @@
           $this.editable('destroy');
 
           itpCount--;
-          //console.log("**** DESTROY ****", itpCount);
+          console.log("**** DESTROY ****", itpCount);
         }
       })
     },
