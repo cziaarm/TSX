@@ -37,6 +37,11 @@ function TSX(config) {
 	//keep unqiue id for marked test...
 	this.mark_id = 0;
 	
+	//htr variables
+//	this.htr_target = $("#htr_target");
+	var $target = $("#htr_target");
+	this.lock = new Blocker('#edit-area'); //not really working (probably due to codeMirror)
+
 	//Key stroke management
 	//keys that will (potentially) change the line of transcript the cursor is on
 	//return, up, down, delete, pageup, pagedown
@@ -48,6 +53,9 @@ function TSX(config) {
 	this.control_keys = [17, 18, 16, 20, 35, 36, 37, 39, 45, 46, 91, 93, 144, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 145, 19, 13,38,40,33,34 ]; //ignore these
 	//so we don't get all the other this' mixed up
 	self = this;
+
+	// This lib may help to prevent unwanted asynchronous events.
+	require("jquery.blockUI");
 
 	//init: check connection to data server
 	// have connection fire afterConnection()
@@ -389,32 +397,10 @@ function TSX(config) {
 		//we use codeMirror to control and manipulate the transcript editing area
 		self.cm = CodeMirror(document.getElementById("edit-area"),{lineNumbers: true});
 		
-		//bind htr communication to edit-area IF we are in interactive mode
-		$("#edit-area").on("mousedown", function(e){
-			//always handle_move when there is a potential line change!
-			self.handle_move();
-			
-			//console.log(self.mode+' === "interactive" && '+self.htrSocketPort+' && !'+self.htrConnected);
-			//the conditions are right, lets HTR!
-			//This could not get called if one tabs to the edit-area???? maybe focus would be more appropriate
-			//TODO move this block into a focus()
-			//TODONE tried that, didn't work...
-			if(self.mode === "interactive"){
-				if(self.htrSocketPort && !self.htrConnected){
-					self.connect_to_htr(e);
-				}
-				self.suggestion_handling();
-			}
-		});
-		
-		$("#edit-area").on("keydown", function(e){
-		
-			//call handle move for a designated set of "action keys" that will move the line
-			if($.inArray(e.which, self.line_change_keys)>=0){
-				self.handle_move(e);
-			}
+		//check for and handle movement to a newline in the edit-area (includes HTR comms)
+		$("#edit-area").on("mousedown", $.debounce(self.handle_move, 300));
+		$("#edit-area").on("keydown", $.debounce(self.handle_move, 300));
 
-		});
 		self.init_TEI_editing();
 	}
 	//init_mode_handling() actions dependent on transcription mode
@@ -428,12 +414,12 @@ function TSX(config) {
 			self.mode = $(this).val();
 			$(this).closest( ".column" ).find( ".column-header span" ).html(" - "+ucfirst(self.mode));
 			//no current page loaded so we don't care at this point...action-wise?
-			if(self.current_page === undefined){
-					return false;
-			}
-	
+//			if(self.current_page === undefined){
+//				return false;
+//			}
+
 			//current_page is defined, but the transcript data is not loaded 
-			if(self.ts_data[self.current_page] === undefined){
+			if(self.ts_data[self.current_page] === undefined && self.current_page != undefined){
 					//load transcript data
 					self.load_transcript();
 			}
@@ -442,10 +428,12 @@ function TSX(config) {
 				case "plain":
 						//hide transcript
 						self.unrender_transcript();
+						self.restore_wglist();
 					break;
 				case "post":
 						//show transcript
 						self.render_transcript();
+						self.restore_wglist();
 					break;
 				case "interactive":
 						//hide transcript
@@ -533,6 +521,7 @@ function TSX(config) {
 			self.current_doc = $(this).attr("data-docId");
 			//add to nav
 			self.build_nav($(this).attr("data-docId"),1);
+			if(self.mode === "interactive") self.check_wglist();
 			self.render_batch(self.current_doc);
 		});
 	}
@@ -575,6 +564,7 @@ function TSX(config) {
 		//bin next-step functions
 		$(".box").on("click", function(){
 			//add to nav
+			self.current_box = $(this).attr("id");
 			self.build_nav($(this).attr("id"),1);
 			self.render_local_box($(this).attr("id"));
 		
@@ -612,18 +602,31 @@ function TSX(config) {
 		}
 		//bind image and transcript loading functions (finally!)
 
-		$(".doc_ref").on("click", function(){
-			//set choosen as current page
-			self.prev_page = self.current_page;
-			self.current_page = $(this).attr("data-pageInd");
-			//add to nav
-			self.build_nav(self.current_page,3);	
-			// and it's ref as current_page_ref
-			self.current_page_ref = $(this).attr("data-pageRef");
-			//call load_image (this will in turn call load_transcript(s) when done
-			self.load_image($(this).attr("rel"));
-		});
+//		$(".doc_ref").on("click", function(){
+//		});
+		$(".doc_ref").on("click", self.page_init);
+
 	}
+	
+	this.page_init = function(){
+		//unset the current_line num
+		self.current_line_num = undefined;
+		self.htrConnected = false;
+
+
+		//set choosen as current page
+		self.prev_page = self.current_page;
+		self.current_page = $(this).attr("data-pageInd");
+		// and it's ref as current_page_ref
+		self.current_page_ref = $(this).attr("data-pageRef");
+		//update the list of pages we can use htr for
+		if(self.mode === "interactive") self.check_wglist();
+		//add to nav
+		self.build_nav(self.current_page,3);	
+		//call load_image (this will in turn call load_transcript(s) when done
+		self.load_image($(this).attr("rel"));	
+	}
+
 	//render_docs_list(): when in remote mode this will render list of pages (thumbnails) and bind image and transcription loading functions
 	this.render_docs_list = function(){
 		
@@ -647,6 +650,9 @@ function TSX(config) {
 		//bind the next-step functions for the box refs
 		//ie rendering the thumbnails for a box
 		$(".box").on("click", function(){
+			self.current_box = $(this).attr("id");
+			//update the list of pages we can use htr for
+			if(self.mode === "interactive") self.check_wglist();
 			self.build_nav($(this).attr("id"),2);
 			self.render_box($(this).attr("id"));	
 		});
@@ -654,29 +660,36 @@ function TSX(config) {
 	
 	
 	/******************************* EDITING ********************************/
-	/** functions for editing transcripts								   **/
+	/** functions for editing transcripts				       **/
 	/** 	1. tracking line and moving/hilighting associated image region **/
-	/**		2. managing TEI and visual editing modes					   **/
+	/**	2. managing TEI and visual editing modes	  	       **/
 	/************************************************************************/
 	
 	//1. handle_move(), pan_to_line(), draw_line_poly()
 	
 	this.handle_move = function(e){
 		
-		var prev_line = self.current_line_num;
-		var cursor = self.cm.getCursor();
-		console.log(self.current_page);
-		console.log(cursor.line);
-		$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
-		console.log(self.ts_data[self.current_page][cursor.line].id);
+		//don't care if event has not resulted in the cursor going to a new line
+		if(!self.is_newline()) return false;
 
-		if(self.ts_data[self.current_page] != undefined && self.ts_data[self.current_page][cursor.line] != undefined){
-			//console.log(self.ts_data[cursor.line].poly);
-			self.current_line = self.ts_data[self.current_page][cursor.line];
+
+//		var cursor = self.cm.getCursor();
+		if(self.mode != "plain"){
+			self.pan_to_line();
 		}
-		self.current_line_num = cursor.line;
-		//we have moved to another line
-		if(cursor.line != prev_line){
+		//init suggestions for the new line
+		if(self.mode === "interactive"){
+//			self.init_suggestions();
+			self.connect_to_htr();
+		}
+
+//		console.log(self.current_page);
+//		console.log(cursor.line);
+
+
+/*		console.log("using id: "+self.ts_data[self.current_page][cursor.line].id);
+
+		if(cursor.line != self.prev_line){
 			//self.draw_line_poly();
 			//pan the image to the new line
 			if(self.mode != "plain"){
@@ -687,15 +700,41 @@ function TSX(config) {
 				self.init_suggestions();
 			}
 		}
-		//else if(self.mode == "interactive"){
-		//	this.reposition_suggestions(cursor);
-		//}
+*/
+	}
+	this.is_newline = function(){
+		var cursor = self.cm.getCursor();
+		//current_line_num is only set here so if not set... must be a new line...
+		if(self.current_line_num === undefined){
+			self.init_newline(cursor);	
+			return true;
+		}
+		self.prev_line = self.current_line_num;
+		self.current_line_num = cursor.line;
+		//we have moved to another line
+	//	console.log(cursor.line+" ?? "+self.prev_line);
+		if(cursor.line != self.prev_line){
+			self.init_newline(cursor);
+			return true;
+		}
+		console.log("is_newline: NOT new line");
+		return false;
+
+	}
+	this.init_newline = function(cursor){
+		self.current_line_num = cursor.line;
+		if(self.ts_data[self.current_page] != undefined && 
+			self.ts_data[self.current_page][cursor.line] != undefined){
+				$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
+				//console.log(self.ts_data[cursor.line].poly);
+				self.current_line = self.ts_data[self.current_page][cursor.line];
+		}	
 	}
 	this.pan_to_line = function(){
 		
 		self.ratio =  $("#image-canvas").width()/self.image_width;	
-		console.log(self.ratio);
-		console.log(self.current_line.rec.x.min*self.ratio);
+//		console.log(self.ratio);
+//		console.log(self.current_line.rec.x.min*self.ratio);
 		
 		if(self.current_line != undefined){
 			$("#image-canvas").panzoom("pan", 
@@ -749,6 +788,7 @@ function TSX(config) {
 			}
 		});
 		//insert void TEI tags (eg <gap/>
+		
 		$(".tei-insert").on("click",function(){			
 			self.cm.replaceSelection("<"+$(this).attr("id")+"/>");
 		});
@@ -905,15 +945,15 @@ function TSX(config) {
 
 	//init_htr() = set up the bits of DOM that will request and respond to HTR
 	this.init_htr = function(){
-		console.log("INIT HTR");
-				console.log("HERE: "+self.current_page);
 
 		if(self.local) return;
 		if(self.mode != "interactive") return;
+		
+		self.set_up_suggestion_events();
+
+		self.check_wglist();
 
 		require("jquery.editable.itp");
-		// This lib may help to prevent unwanted asynchronous events.
-		require("jquery.blockUI");
   
 		// Check HTR engine availability.
 		self.getAvailableSocket();
@@ -921,7 +961,7 @@ function TSX(config) {
 	// getAvailableSocket() gets a valid port to usse for HTR socket
 	this.getAvailableSocket = function(){
 //		$.getJSON("http://casmacat.prhlt.upv.es/servers/status/poc?callback=?", function(portNums){
-		$.getJSON(self.htr_server+"/servers/status/poc?callback=?", function(portNums){
+		$.getJSON(self.htr_server+"/servers/status/bentham-batches?callback=?", function(portNums){
 			var howMany = Object.keys(portNums).length,
 			nTested = 0;
 			for (var n in portNums) {
@@ -943,22 +983,55 @@ function TSX(config) {
 	// to interact with HTR. suggestion fcuntions will pick up data from 
 	// htr_target
 	this.connect_to_htr = function(ev) {
-	    console.log("Connecting...");
+		if(self.mode != "interactive") return false;
 
-		//TODO: insert here (or after have socket) a check for presence of associated HTR data (can also normalise dodgy refs here)
-		//(using http://transcriptorium.eu/demots/corpora/bentham/JB.002_080_001.json)
-		console.log("http://transcriptorium.eu/demots/corpora/bentham/JB.002_080_001.json");
-		console.log("HERE: "+self.current_page_ref);
+/*		if(ev.type == "keydown" && $.inArray(ev.which, self.line_change_keys)<0){
+			return false;
+		}
+*/
+	    	console.log("Connecting...");
+		if(!self.htrSocketPort || self.htrSocketPort === undefined) return false;
+		//use this to stop the multifarious htr requests (though will limit to only one for time being)
+		if(self.htrConnected) return false;
+		console.log($target);
+	
+		self.check_wglist();
 	    // Setup the jQuery editable plugin.
-		var $target = $('#htr_target');
 
-	    $("#htr_target").editableItp({
-	      // We must indicate the source element to read data from.
+	    	console.log("Still Connecting...");
+//		if (self.htr_target){ 
+		if ($target){ 
+			try {
+				//this stuff is apparently not being called.
+				//(causing the exponential increase in HTR requests?)
+				//why?
+				console.log("have target already...");
+//			 	self.htr_target.text("").off('.ts');
+			 	$target.text("").off('.ts');
+				console.log("Calling endSession");
+//			      	self.htr_target.editableItp('endSession');
+			      	$target.editableItp('endSession');
+				console.log("Calling destroy");
+//			      	self.htr_target.editableItp('destroy');
+			      	$target.editableItp('destroy');
+		    	} catch(err) {
+			      // itpServer is undefined when initializing for the first-time.
+				console.log("error....");
+		//		return false;
+	    		}
+		}else{
+			console.log("No target set up for htr");
+		}
+		console.log($(".source-text").text());
+		if($(".source-text").text() === ""){
+			console.log("RESETTING SOURCE-TEXT");
+			var cursor = self.cm.getCursor();
+			$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
+		}
+
+//	    	self.htr_target.editableItp({
+	    $target.editableItp({
 	      sourceSelector: ".source-text",
-	      // By now we are using the CasMaCat architecture, 
-	      // although in tS it will be pretty similar.
-	      // We use the "at" symbol to indicate custom socket.io resources.
-//	      itpServerUrl:   "http://casmacat.prhlt.upv.es@" + self.htrSocketPort + "/casmacat"
 	      itpServerUrl:   self.htr_server + "@" + self.htrSocketPort + "/casmacat"
 
 	    })
@@ -966,39 +1039,46 @@ function TSX(config) {
 	    .on('ready', self.isReady)
 	    // We can attach different callbacks to the same event, of course.
 	    .on('ready', function(ev, msg) {
-	      self.unblockUI();
+	      self.lock.unblockUI();
 	    })
 	    .on('unready', function(ev, msg) {
-	      self.blockUI(msg);
-	    })
+	      self.lock.blockUI(msg);
+	    });
+
 		self.htrConnected = true;
-	  }
+	}
 	//isReady() is callback for post HTR response action
 	//TODO: lots 
 	this.isReady = function() {
-		var $target = $('#htr_target');
+	//	var $target = $('#htr_target');
 
 	    // At this point, the server has initialized the wordgraph 
 	    // the connection has been successfully stablished.
 	    
 	    // Let's change some server-side settings.
 	    var settings = $target.editableItp('getConfig');
-	    console.log("Settings:", settings);
+//	    var settings = self.htr_target.editableItp('getConfig');
 	    // For instance, the editing mode will be Interactive Text Prediction.
 	    settings.mode = "ITP";
 	    $target.editableItp('updateConfig', settings);
+//	    self.htr_target.editableItp('updateConfig', settings);
+
 	    
 	    // Decode current image if there is no transcribed text so far.
+//	    var transcription = self.htr_target.text();
 	    var transcription = $target.text();
 	    if ($.trim(transcription).length === 0) {
+//	      self.htr_target.editableItp('decode');
 	      $target.editableItp('decode');
 	    }
 
 	    // Now attach a number of callbacks (more to come).
+//	    self.htr_target.on('decode', function(ev, data, err) {
 	    $target.on('decode', function(ev, data, err) {
 	      if (err.length > 0) console.error("Error!", err);
 	      // The server has decoded a given source image ID.
 	      console.log(ev.type, data);
+//	      self.htr_target.editableItp('startSession');
 	      $target.editableItp('startSession');
 	    })
 	    .on('startSessionResult', function(data, err) {
@@ -1021,6 +1101,8 @@ function TSX(config) {
 	      if (err.length > 0) console.error("Error!", err);
 	      // Tokenization information is received.
 	      console.log(ev.type, data);
+		//we'll meld the existing suggestion code to the HTR data somehow
+		self.init_suggestions();
 	    })
 	    .on('alignments', function(ev, data, err) {
 	      if (err.length > 0) console.error("Error!", err);
@@ -1055,24 +1137,44 @@ function TSX(config) {
 	//    .on('mementoinvalidate', function(ev) {
 	//    })
 	}
-	this.blockUI = function(msg) {
-	    $('#global').block({
-	      message: '<h2>' + msg + '</h2>',
-	      // Add some fancy styles
-	      css: {
-		fontSize:'150%', 
-		padding:'1% 2%', 
-		top:'45%', 
-		borderWidth:'3px', 
-		borderRadius:'10px', 
-		'-webkit-border-radius':'10px', 
-		'-moz-border-radius':'10px' 
-	      }
-	    });  
-	  }
-	  
-	this.unblockUI = function() {
-	    $('#global').unblock();
+
+	//check_wglist() check to see what is actually available for interactive HTR based transcription
+	this.check_wglist = function(){
+	
+		if(self.current_box === undefined) return false;
+		
+		$.getJSON("./HTR_proxy.php?ref=JB."+self.current_box)
+				.done(function( data ) {
+					self.page_iids = data.iids;
+					$("#data-list > ul > li").each(function(){
+						var re = new RegExp ($(this).attr("data-pageref"));
+						if($.inArray(re,self.page_iids)==-1){
+							if($(this).attr("data-pageref") === self.current_page_ref){
+								self.unload_image();
+							}
+							$(this).off("click", self.page_init).fadeTo("fast",0.5).css({cursor: "normal"});
+						}
+					});
+				  })
+				  .fail(function( jqxhr, textStatus, error ) {
+					var err = textStatus + ", " + error;
+					console.log( "Request Failed: " + err );
+				});
+
+	
+
+	}
+	//restore_wglist() but stuf back to how it was 
+	this.restore_wglist = function(){
+		$("#data-list > ul > li").each(function(){
+			var re = new RegExp ($(this).attr("data-pageref"));
+			if($.inArray(re,self.page_iids)==-1){
+				$(this).on("click", self.page_init).fadeTo("fast",1).css({cursor: "pointer"});
+			}else{
+//				$(this).append("##");
+			}
+		});
+	
 	}
 
 	/************* Predictive suggestions (via HTR) **************/
@@ -1083,8 +1185,8 @@ function TSX(config) {
 	//TODO will need to integrate this more closely as HTR can 
 	//change it's mind on a suffix if a prefix is validated...?
 	
-	//suggestion_handling() react to key presses in edit-area
-	this.suggestion_handling = function(){
+	//set_up_suggestion_events() react to key presses in edit-area
+	this.set_up_suggestion_events = function(){
 		//codeMirror event listener (we must use this to prevent default)
 		self.cm.on("keydown", function(cm, e){
 			//console.log(e.which);
@@ -1116,8 +1218,14 @@ function TSX(config) {
 	//init_suggestions() (from pre-loaded ts_data for now, from htr_target soon!)
 	//line up the next suggested word (next_s_word)
 	this.init_suggestions = function(){
-		self.s_line = self.ts_data[self.current_page][self.current_line_num].text;
-		self.s_words = self.s_line.split(/\s/);
+//		self.s_line = self.ts_data[self.current_page][self.current_line_num].text;
+//		self.s_words = self.s_line.split(/\s/);
+		
+		self.s_words = [];
+		$("#htr_target > span").each(function(){
+			self.s_words.push($(this).text());
+		});
+
 		self.e_words = self.cm.getLine(self.current_line_num).split(/\s/);
 		self.word = 0;
 		self.next_s_word = self.s_words[self.word];
@@ -1310,6 +1418,9 @@ function TSX(config) {
 				});
 				
 		}else{
+			if(self.docs == undefined) return false;
+			if(self.docs.pageList == undefined) return false;
+
 			var transcripts = self.docs.pageList.pages[self.current_page].tsList.transcripts;
 			if(transcripts.length == 1){
 				self.handle_transcript(transcripts[0]);
@@ -1330,6 +1441,7 @@ function TSX(config) {
 	//handle_transcript(): dload transcript from data_server
 	this.handle_transcript = function(transcript){
 		//console.log(transcript);
+	      	self.lock.blockUI("Loading layout &amp; references");
 		var url = transcript.url;
 		console.log("Loading transcript: "+url);
 		$.ajax({
@@ -1342,6 +1454,8 @@ function TSX(config) {
 			}).done(function(data, textStatus, jqxhr){
 					self.current_transcript = data;
 					self.load_transcript_data();
+				      	self.lock.unblockUI();
+
 			}).
 			fail(function(jqxhr,textStatus,error){
 					var err = textStatus + ", " + error;
@@ -1399,30 +1513,42 @@ function TSX(config) {
 	//render_transcript(): put the text in the edit-area
 	this.render_transcript = function (){
 		if(self.mode != "post") return false;
+		if(self.current_page === undefined) return false;
+
 		self.unrender_transcript();
 		for(var i =0; i<self.ts_data[self.current_page].length; i++){
 		//	console.log("rendering line: "+i);
-			self.cm.replaceRange(self.ts_data[self.current_page][i].text+"\n", {line:i, ch: 0});
+			if(self.ts_data[self.current_page][i].text != undefined){
+				self.cm.replaceRange(self.ts_data[self.current_page][i].text+"\n", {line:i, ch: 0});
+			}else{
+				self.cm.replaceRange("\n", {line:i, ch: 0});
+			}
 		}
 	}
 	//unrender_transcript(): take the text out of the edit-area
 	this.unrender_transcript = function() {
-		
+		console.log("unrendering");	
 		//no current page
-		if(self.current_page === undefined && self.prev_page === undefined)
+		if(self.current_page === undefined && self.prev_page === undefined){
+			console.log("no cp or pp");
 			return false;
+		}
 		//have we changed page or mode?
 		if(self.mode != "post"){ //mode
 			page_to_clear = self.current_page;
-			//console.log("using current");
+			console.log("using current");
 		}else if(self.prev_page != undefined && self.ts_data[self.prev_page] != undefined){
 			page_to_clear = self.prev_page;
-			//console.log("using prev");
+			console.log("using prev");
 		}else{
+			console.log("elsed");
 			return false;
 		}
-
-		if(self.cm.getLine(self.ts_data[page_to_clear]) === undefined) return false;
+		if(self.cm.getValue() === "") return false; //nothing to remove
+		if(self.ts_data[page_to_clear] != undefined && self.cm.getLine(self.ts_data[page_to_clear].length-1) === undefined){
+			console.log("no ts_data for "+page_to_clear);
+			 return false;
+		}
 		self.cm.replaceRange("", 
 				{line:0, ch: 0}, //from
 				{line:self.ts_data[page_to_clear].length, ch: self.cm.getLine(self.ts_data[page_to_clear].length-1).length} //to
@@ -1430,7 +1556,7 @@ function TSX(config) {
 	}
 	
 	/************** UTILITY **************/
-	/** Bentham in the house!			**/
+	/** 				    **/
 	/*************************************/
 	
 	//ucfirst... is this the only shonky utility function I've used... that must be a record!
@@ -1440,10 +1566,24 @@ function TSX(config) {
 	    .toUpperCase();
 	  return f + str.substr(1);
 	}
-
-	/************ TRUTH **************/
-	/** 			?			    **/
-	/*********************************/
+	//inArray with regex
+	(function() {
+   		var originalInArray = $.inArray;
+		$.inArray = function(regex, array, start) {
+			if (!array) return -1;
+			start = start || 0;
+			if (Object.prototype.toString.call(regex) === "[object RegExp]") {
+				for (var i = start; i < array.length; i++) {
+					if (regex.test(array[i])) {
+						return i;
+					}
+            			}
+          	  		return -1;
+			} else {
+			    return originalInArray.apply(this, arguments);
+			}
+		    };
+		})();
 	
 /*	function MouseWheelHandler(e) {
 		// cross-browser wheel delta
@@ -1455,10 +1595,30 @@ function TSX(config) {
 */
 }
 
-//Store images and xml in wiki?
-	//http://en.wikipedia.org/wiki/Help:File_page
-
-//	var tsx = new TSX({data_server: "http://www.transcribe-bentham.da.ulcc.ac.uk/tsx/TSX_images/"});
+var Blocker = function(selector) {
+    var $elem = $(selector);
+    
+    this.blockUI = function(msg) {
+      $elem.block({
+        message: msg,
+        centerY: false,
+        css: {
+//          fontSize: "150%", 
+          top: $(document).scrollTop() + 50,
+          width: $elem.width() * 0.6,
+          padding: "1% 2%", 
+          borderWidth: "3px", 
+          borderRadius: "10px", 
+          '-webkit-border-radius': "10px", 
+          '-moz-border-radius': "10px" 
+        }
+      });  
+    };
+    
+    this.unblockUI = function() {
+      $elem.unblock();
+    };
+  };
 
 
 
