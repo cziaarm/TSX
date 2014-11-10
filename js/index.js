@@ -725,7 +725,7 @@ function TSX(config) {
 		self.current_line_num = cursor.line;
 		if(self.ts_data[self.current_page] != undefined && 
 			self.ts_data[self.current_page][cursor.line] != undefined){
-				$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
+			//	$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
 				//console.log(self.ts_data[cursor.line].poly);
 				self.current_line = self.ts_data[self.current_page][cursor.line];
 		}	
@@ -992,93 +992,71 @@ function TSX(config) {
 	    	console.log("Connecting...");
 		if(!self.htrSocketPort || self.htrSocketPort === undefined) return false;
 		//use this to stop the multifarious htr requests (though will limit to only one for time being)
-		if(self.htrConnected) return false;
-		console.log($target);
 	
 		self.check_wglist();
-	    // Setup the jQuery editable plugin.
+	    	// Setup the jQuery editable plugin.
 
-	    	console.log("Still Connecting...");
-//		if (self.htr_target){ 
-		if ($target){ 
-			try {
-				//this stuff is apparently not being called.
-				//(causing the exponential increase in HTR requests?)
-				//why?
-				console.log("have target already...");
-//			 	self.htr_target.text("").off('.ts');
-			 	$target.text("").off('.ts');
-				console.log("Calling endSession");
-//			      	self.htr_target.editableItp('endSession');
-			      	$target.editableItp('endSession');
-				console.log("Calling destroy");
-//			      	self.htr_target.editableItp('destroy');
-			      	$target.editableItp('destroy');
-		    	} catch(err) {
-			      // itpServer is undefined when initializing for the first-time.
-				console.log("error....");
-		//		return false;
-	    		}
-		}else{
-			console.log("No target set up for htr");
-		}
-		console.log($(".source-text").text());
-		if($(".source-text").text() === ""){
-			console.log("RESETTING SOURCE-TEXT");
-			var cursor = self.cm.getCursor();
-			$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
-		}
-
+		var cursor = self.cm.getCursor();
+			
 //	    	self.htr_target.editableItp({
-	    $target.editableItp({
-	      sourceSelector: ".source-text",
-	      itpServerUrl:   self.htr_server + "@" + self.htrSocketPort + "/casmacat"
+		if(self.htrConnected){
+			$target.editableItp('endSession')
+			console.log("connected - setting source-text to :"+ $(".source-text").text());
+			$target.data("itp").$source.text(self.ts_data[self.current_page][cursor.line].id);
+			$("#htr_target").empty();
+			$target.data("itp").$target = $("#htr_target");
+	
+			var transcription = $target.text();
+	    		if ($.trim(transcription).length === 0) {
+	      			$target.editableItp('decode');
+			}
+		
+		}else{	
+			//we will set the source-text here (just in time)
+			if($(".source-text").text() === ""){
+			$("#htr_stuff").html('<p class="source-text">'+self.ts_data[self.current_page][cursor.line].id+'</p>');
+			}
+		    	$target.editableItp({
+		      		sourceSelector: ".source-text",
+		      		itpServerUrl:   self.htr_server + "@" + self.htrSocketPort + "/casmacat"
 
-	    })
-	    // Now we can attach some event listeners, this one is mandatory.
-	    .on('ready', self.isReady)
-	    // We can attach different callbacks to the same event, of course.
-	    .on('ready', function(ev, msg) {
-	      self.lock.unblockUI();
-	    })
-	    .on('unready', function(ev, msg) {
-	      self.lock.blockUI(msg);
-	    });
+		    	})
+			// Now we can attach some event listeners, this one is mandatory.
+			.on('ready', self.isReady)
+			// We can attach different callbacks to the same event, of course.
+			.on('ready', function(ev, msg) {
+				self.lock.unblockUI();
+			})
+			.on('unready', function(ev, msg) {
+		      		self.lock.blockUI(msg);
+		    	});
 
-		self.htrConnected = true;
+			self.htrConnected = true;
+		}
 	}
 	//isReady() is callback for post HTR response action
 	//TODO: lots 
 	this.isReady = function() {
-	//	var $target = $('#htr_target');
-
 	    // At this point, the server has initialized the wordgraph 
 	    // the connection has been successfully stablished.
 	    
 	    // Let's change some server-side settings.
 	    var settings = $target.editableItp('getConfig');
-//	    var settings = self.htr_target.editableItp('getConfig');
 	    // For instance, the editing mode will be Interactive Text Prediction.
 	    settings.mode = "ITP";
 	    $target.editableItp('updateConfig', settings);
-//	    self.htr_target.editableItp('updateConfig', settings);
-
 	    
 	    // Decode current image if there is no transcribed text so far.
-//	    var transcription = self.htr_target.text();
 	    var transcription = $target.text();
 	    if ($.trim(transcription).length === 0) {
-//	      self.htr_target.editableItp('decode');
 	      $target.editableItp('decode');
 	    }
 
 	    // Now attach a number of callbacks (more to come).
-//	    self.htr_target.on('decode', function(ev, data, err) {
 	    $target.on('decode', function(ev, data, err) {
 	      if (err.length > 0) console.error("Error!", err);
 	      // The server has decoded a given source image ID.
 	      console.log(ev.type, data);
-//	      self.htr_target.editableItp('startSession');
 	      $target.editableItp('startSession');
 	    })
 	    .on('startSessionResult', function(data, err) {
@@ -1102,6 +1080,7 @@ function TSX(config) {
 	      // Tokenization information is received.
 	      console.log(ev.type, data);
 		//we'll meld the existing suggestion code to the HTR data somehow
+		console.log("### init suggestions ###");
 		self.init_suggestions();
 	    })
 	    .on('alignments', function(ev, data, err) {
