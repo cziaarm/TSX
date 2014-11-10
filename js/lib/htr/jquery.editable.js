@@ -48,19 +48,22 @@
     },
 
     getTokenAtCaretPos: function(pos) {
-      var $this = $(this),
-          node = $this.get(0),
-          elem;
-
-      var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false)
-
-      // find HTML text element in cursor position
-      while (walker.nextNode()) {
-        elem = walker.currentNode;
-        if ((pos - elem.length) >= 0) pos -= elem.length;
-        else break;
+      var node = $(this), len = node.text().length, elem, pos;
+      if (pos < 0 || pos > len || len === 0) {
+        // caret is out of the element
+      } else if (pos == len) { 
+        // caret at the end of the element
+        elem = node.get(0).lastChild;
+        pos = elem.length;
+      } else { 
+        // find the actual element
+        var walker = document.createTreeWalker(node.get(0), NodeFilter.SHOW_TEXT, null, false);
+        while (walker.nextNode()) {
+          elem = walker.currentNode;
+          if ((pos - elem.length) >= 0) pos -= elem.length;
+          else break;
+        }
       }
-
       return {elem: elem, pos: pos};
     },
 
@@ -199,7 +202,7 @@
         $this.editable('forgetCaret');
         return undefined;
       }
-
+      
       // emmit caretenter and caretleave events
       var tok = $(this).editable('guessToken', elem, pos);
       if (data.currentElement !== tok.node) {
@@ -211,11 +214,11 @@
       token.range = document.createRange();
       token.range.setStart(token.elem, token.pos);
       token.range.collapse(true);
-     
+      
       var ev = { target: this, pos: pos, lastPos: data.lastPos, token: token, caretRect: token.range.getClientRects()[0] }
-      data.lastPos = (elem)?pos:undefined;
+      data.lastPos = elem ? pos : undefined;
+      
       $this.trigger('caretmove', ev);
-
       return token;
     },
 
@@ -224,7 +227,7 @@
           data = $this.data('editable'),
           node = $this.get(0);
 
-      var caretOffset = 0;
+      var caretOffset = -1;
       try {
         if (typeof window.getSelection != "undefined") {
           var range = window.getSelection().getRangeAt(0);
@@ -272,6 +275,10 @@
       return { pos: absolutePos, token: token, caretRect: caretRect }
     },
 
+    getTokenXY: function($token) {
+        return jQuery.extend({}, $token.get(0).getClientRects()[0]);
+    },
+    
     getTokenPos: function(token) { 
       var $this = $(this)
         , textTok = $(token).contents().filter(function() { return this.nodeType == 3; }).get(0)
@@ -285,7 +292,7 @@
         if (elem === textTok) break; 
         pos += elem.length;
       }
-
+      
       return pos;
     },
 
@@ -296,10 +303,11 @@
 
     setCaretPos: function(pos) {
       var token = this.editable('updateCaret', pos);
-
-      var sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(token.range);
+      if (token){
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(token.range);
+      }
     },
 
     getText: function() {
@@ -309,7 +317,7 @@
     setText: function(str, segs) {
       var $this = $(this),
           data = $this.data('editable');
-
+	
       //XXX: can we assume this?
       //if (data['str'] === str) return;
       data['str'] = str;
@@ -531,15 +539,20 @@
         else {
           replaceable.replaceWith(tokens.contents());
         }
+        replaceable = tokens.contents();
       }
       else {
         replaceable.text(str);
       }
-
       data['str'] = $this.text();
-
+      
+      return replaceable;
     },
 
+    hasFocus: function () {
+      // herve - did I really need to add this? It's probably already somewhere else
+      return $(this).is (':focus');
+    }
   };
 
 

@@ -25,6 +25,7 @@
         // sockets with url and not machine:port, socket.io cache
         // uses the same connection for htr@port and itp@port
         ioOptions['force new connection'] = true;
+        //ioOptions['max reconnection attempts'] = 3;
       }
        
       self.server = new io.connect(url, ioOptions);

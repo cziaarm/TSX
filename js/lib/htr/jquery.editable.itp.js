@@ -66,6 +66,7 @@
     init: function(_options, _config) {
       // extend default options with user defined options
       var options = $.extend({
+        sourceElement: undefined,
         sourceSelector: undefined, // selector for the HTML element that provides the source to translate
         sourceDisabled: true, // if true, the source cannot be edited by the user 
         itpServerUrl: undefined, 
@@ -74,7 +75,7 @@
 
       return this.each(function() {
         var $this = $(this)
-          , $source = $(options.sourceSelector)
+          , $source = options.sourceSelector ? $(options.sourceSelector) : options.sourceElement
           , itpRes = getItpServer(options)
           , itpServer = itpRes.itpServer
           , data = {
@@ -82,7 +83,7 @@
               $target: $this,
               itpServer: itpServer,
               config: setDefaults(_config, {
-                allowRejectSuffix: false,
+                allowRejectSuffix: true,
                 useAlignments: true,
                 useConfidences: true,
                 useSuggestions: false,
@@ -103,7 +104,6 @@
         $this.data(namespace, data);
 
         $this.options = options;
-
         $this.editable();
         $source.editable({disabled: options.sourceDisabled});
         
@@ -118,13 +118,12 @@
         if (itpRes.doTriggerConnect) itpServer.trigger('connect');
 
         itpCount++;
-        console.log("**** CREATE ****", itpCount);
+        //console.log("**** CREATE ****", itpCount);
       });
     },
 
     destroy: function() {
       return this.each(function() {
-
         var $this = $(this);
         if ($this.data(namespace)) {
           var $source = $this.data(namespace).$source;
@@ -136,7 +135,7 @@
           $this.editable('destroy');
 
           itpCount--;
-          console.log("**** DESTROY ****", itpCount);
+          //console.log("**** DESTROY ****", itpCount);
         }
       })
     },
@@ -145,6 +144,7 @@
     setOptions: function(options) { this.options = options; },
 
     decode: function() { 
+
       var data = $(this).data(namespace);
       data.itpServer.decode({source: data.$source.editable('getText')});
     },
@@ -189,6 +189,7 @@
 
     setTargetText: function(str) { 
       var data = $(this).data(namespace);
+ 
       data.$target.editable('setText', str);
     },
 
@@ -203,23 +204,25 @@
       return data.config;
     },
     
-    rejectSuffix: function(caretPos) {
+    rejectSuffix: function(caretPos, numResults) {
+      if (typeof(numResults) === 'undefined') numResults = 1;
       var data = $(this).data(namespace);
       data.itpServer.rejectSuffix({
         source: data.$source.text(),
         target: data.$target.text(),
         caretPos: caretPos,
-        numResults: 1,
+        numResults: numResults,
       });
     },
 
-    setPrefix: function(caretPos) {
+    setPrefix: function(caretPos, numResults) {
+      if (typeof(numResults) === 'undefined') numResults = 1;
       var data = $(this).data(namespace);
       data.itpServer.setPrefix({
         source: data.$source.text(),
         target:   data.$target.text(),
         caretPos: caretPos,
-        numResults: 1,    
+        numResults: numResults,    
       });
     },
 
@@ -227,6 +230,16 @@
       return $(this).data(namespace).itpServer;
     },
 
+    undo: function() {
+      var memento = $(this).data(namespace).events.memento;
+      if (memento) memento.undo();
+    },
+
+    redo: function() {
+      var memento = $(this).data(namespace).events.memento;
+      if (memento) memento.redo();
+    },
+    
     toggle: function(option, value) {
       $(this).trigger(option + "Toggle", value); 
     },

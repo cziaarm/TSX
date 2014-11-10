@@ -16,10 +16,11 @@ var Memento = require("module.memento");
   })();
   
   // This function only works with keypress events
-  function isPrintableChar(evt) {
+  function doesTriggerInteraction(evt) {
     if (typeof evt.which == "undefined") {
       return true;
     } else if (typeof evt.which == "number" && evt.which > 0) {
+      if (evt.ctrlKey || evt.altKey) return false;
       return evt.which == 32 || evt.which == 13 || evt.which > 46;
     }
     return false;
@@ -30,25 +31,33 @@ var Memento = require("module.memento");
 
     self.vis = new ItpVisulization($target, namespace, nsClass);
 
+    // These flag are used to prevent requesting suffixes when the server doesn't have any.
     var lockReject = false;
+    var lockRejectCaretPos = null;
+    
     function cfg()     { return $target.data(namespace); }
     function userCfg() { return cfg().config; }
     function $source() { return $target.data(namespace).$source; }
     function reject() {
       var conf = cfg();
-      if (conf.config.mode != 'PE' && !lockReject) {
-        var target = $target.editable('getText'),
-            pos    = $target.editable('getCaretPos');
+      if (conf.config.mode == 'PE') return;
 
-        lockReject = true;
-        conf.itpServer.rejectSuffix({
-          target: target,
-          caretPos: pos,
-          numResults: 1,
-        });
+      var target = $target.editable('getText'),
+          pos    = $target.editable('getCaretPos');
+                
+      if (lockReject && pos === lockRejectCaretPos) {
+        $target.trigger('rejectSuffixResult', [null, ["Reject is currently locked"]]);
+        return;
       }
+      lockReject = true;
+      lockRejectCaretPos = pos;
+      
+      conf.itpServer.rejectSuffix({
+        target: target,
+        caretPos: pos,
+        numResults: 1,
+      });
     };
-  
   
  
     // Load modules --------------------------------------
@@ -60,26 +69,28 @@ var Memento = require("module.memento");
       },
       change: function(data) {
         if (!userCfg().allowRejectSuffix || !Boolean($target.editable('getText'))) {
-          return false;
+          return;
         }
-        if (data) {
-          console.log("Loading previous data...", data);
-          self.vis.updateSuggestions(data);
+        if (data === null) {
+          $target.trigger('rejectSuffixResult', [data, ["Reached bottom of the stack"]]);
+        } else if (data === undefined) {
+          // Defeat weird race condition -- it only happens with rejectSuffix ¬¬
+          throttle(reject, 100);
         } else {
-          console.log("Rejecting...");
-          reject();
+          $target.trigger('rejectSuffixResult', [data]);
+          self.vis.updateSuggestions(data);
         }
       }
     });
-      
+    
     self.memento = new Memento();
     self.memento.init($target, {
       start: function() {
         $target.bind('input, editabletextchange', function(e, data, err){
-          if (err.length > 0) {
-            console.error(err);
-            return;
-          }
+//          if (err.length > 0) {
+//            console.error(err);
+//            return;
+//          }
           var tgtText  = $(e.target).editable('getText'),
               caretPos = $(e.target).editable('getCaretPos'),
               currState = self.memento.getState();
@@ -109,7 +120,7 @@ var Memento = require("module.memento");
           source: itpCfg.$source.editable('getText'),
           target: $target.editable('getText'),
         });
-        $target.editable('setCaretPos', data.caret);        
+        if (data.caret) $target.editable('setCaretPos', data.caret);        
       }
     });
  
@@ -126,7 +137,7 @@ var Memento = require("module.memento");
     self.attachItpEvents = function() {
       var itpCfg = cfg();
       var itp    = itpCfg.itpServer;
-  
+
       // Socket.IO callbacks -------------------------------------------------------
       // See https://github.com/LearnBoost/socket.io/wiki/Exposed-events
       itp.on('connect', function() {
@@ -140,8 +151,8 @@ var Memento = require("module.memento");
       });
       
       itp.on('disconnect', function() {
-        itp.checkConnection();
         $target.trigger('unready', 'disconnect');
+        itp.checkConnection();
       });
       
       itp.on('reconnecting', function() { 
@@ -153,8 +164,8 @@ var Memento = require("module.memento");
       });
     
       itp.on('reconnect', function() { 
-        itp.configure(userCfg());
         $target.trigger('ready', 'reconnect');
+        itp.configure(userCfg());
       });
     
       itp.on('anything', function(obj) {
@@ -172,7 +183,7 @@ var Memento = require("module.memento");
     
       itp.on('resetResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
 
@@ -183,13 +194,13 @@ var Memento = require("module.memento");
       // Handle translation responses
       itp.on('decodeResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
 
         // make sure new data still applies to current source
         if (data.source !== $source().editable('getText')) {
-          console.warn("Current source and received source do not match");
+          //console.warn("Current source and received source do not match");
           return;
         }
  
@@ -230,7 +241,7 @@ var Memento = require("module.memento");
       // Handle post-editing (target has changed but not source)
       itp.on('applyReplacementRulesResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
 
@@ -248,7 +259,7 @@ var Memento = require("module.memento");
       // Handle post-editing (target has changed but not source)
       itp.on('getTokensResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
 
@@ -287,7 +298,7 @@ var Memento = require("module.memento");
       // Handle alignment changes (updates highlighting and alignment matrix) 
       itp.on('getAlignmentsResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
 
@@ -299,7 +310,7 @@ var Memento = require("module.memento");
       // Handle confidence changes (updates highlighting) 
       itp.on('getConfidencesResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
 
@@ -312,29 +323,31 @@ var Memento = require("module.memento");
     
       // Handle confidence changes (updates highlighting) 
       itp.on('rejectSuffixResult', function(data, err) {
+        $target.trigger('rejectSuffixResult', [data, err]);
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
         
         lockReject = false;
+        lockRejectCaretPos = null;
       });
 
       itp.on(['setPrefixResult', 'rejectSuffixResult'], function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
 
         // make sure new data still applies to current source
         if (data.source !== $source().editable('getText')) {
-          console.warn("Current source and received source do not match");
+          //console.warn("Current source and received source do not match");
           return;
         }
-
-        self.vis.updateSuggestions(data);
         
+        self.vis.updateSuggestions(data);
         self.mousewheel.addElement(data);
+        
         $target.trigger('suffixchange', [data, err]);
         $target.trigger('editabletextchange', [data, err]);
       });
@@ -342,7 +355,7 @@ var Memento = require("module.memento");
       // Measure network latency
       itp.on('pingResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
         
@@ -354,7 +367,7 @@ var Memento = require("module.memento");
       // Receive server configuration 
       itp.on('getServerConfigResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
         
@@ -364,7 +377,7 @@ var Memento = require("module.memento");
       // Handle updates changes (show a list of updated sentences) 
       itp.on('getValidatedContributionsResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
         
@@ -374,7 +387,7 @@ var Memento = require("module.memento");
       // Handle models changes (after OL) 
       itp.on('validateResult', function(data, err) {
         if (err.length > 0) {
-          console.error(err);
+          //console.error(err);
           return;
         }
         
@@ -413,20 +426,22 @@ var Memento = require("module.memento");
       // whenever the caret leaves a token span
       .bind('caretleave' + nsClass, function(e, d) {
         onCaretChange(e, d, self.vis.hideAlignments);
+        // vromero: remove reject stack when entering or leaving a word token.
+        self.mousewheel.invalidate(true);
       })
       .bind('keydown' + nsClass, function(e) {
-        // prevent new lines
+        // Prevent newlines.
         if (e.which === 13) {
-          //e.stopPropagation(); // We need to capture the event to fire 'save draft translation' fn
           e.preventDefault();
+          e.stopPropagation();
         }
       }).bind('keydown' + nsClass, 'tab', function(e){
         // prevent tabs that move to the next word or to the next priority word
-        //e.stopPropagation();
+        e.stopPropagation();
         e.preventDefault();
         tabKeyHandler(e, 'fwd');
       }).bind('keydown' + nsClass, 'shift+tab', function(e){
-        //e.stopPropagation();
+        e.stopPropagation();
         e.preventDefault();
         tabKeyHandler(e, 'bck');
       });
@@ -610,21 +625,18 @@ var Memento = require("module.memento");
       if (!sourceOptions.disabled) {
         // #source events
         // on key up throttle a new translation
-        $source.bind('keyup' + nsClass, function(e) {
+        $source.bind('keyup' + nsClass, function(e){
           var $this = $(this),
               data = $this.data('editable'),
               source = $this.editable('getText');
-  
-       
-          if (isPrintableChar(e)) {
+          
+          if (doesTriggerInteraction(e)) {
             throttle(function() {
-              if (data.str !== source) {
-                var query = {
-                  source: source,
-                  //num_results: 2,
-                }
-                itp.decode(query);
-              }
+              if (data.str === source) return;
+              itp.decode({
+                source: source,
+                //num_results: 2,
+              });
             }, throttle_ms);
           }
         })
@@ -657,61 +669,80 @@ var Memento = require("module.memento");
         var cpos = $target.editable('getCaretPos');
         forgetState(cpos);
         // Update only the caret position
-        self.currentCaretPos.pos = cpos;
+        if (self.currentCaretPos)
+          self.currentCaretPos.pos = cpos;
         // Issue a reject only if CTRL is pressed
         if (e.ctrlKey) reject(); // UPDATE: This is error prone and may require interaction with other modules
       })
+//      .bind('keydown' + nsClass, 'ctrl+return', function(e){
+////        if (pos === target.length) {
+//          e.preventDefault();
+//          e.stopPropagation();
+//          $target.trigger("validate", [data.str]); // <-- we don't have data.str here!
+////        }
+//      })
       // on keyup throttle a new translation
       .bind('keyup' + nsClass, function(e) {
         var conf = userCfg();
-        if (true) { // also update in PE to update tokenization and validated tokens || conf.mode != 'PE') {
-          var $this = $(this),
-              data = $this.data('editable'),
-              target = $this.editable('getText'),
-              source = $source.editable('getText'),
-              pos = $target.editable('getCaretPos');
+        // XXX: if (true) { // also update in PE to update tokenization and validated tokens || conf.mode != 'PE') {
+        if (conf.mode == 'PE') return;
+        
+        var $this = $(this),
+            data = $this.data('editable'),
+            target = $this.editable('getText'),
+            source = $source.editable('getText'),
+            pos = $target.editable('getCaretPos');
 
-          var spanElem = $target.editable('getTokenAtCaretPos', pos).elem;
-          if (spanElem && spanElem.parentNode && $(spanElem.parentNode).is('.editable-token')) {
-            spanElem = spanElem.parentNode;
-          }
-          var suffixHasUserCorrections = $(spanElem).nextAll('.editable-token').filter(function(index, elem){ return elem.dataset.validated === "true"; });
- 
-          var targetId = $(spanElem).attr('id');
-          // Remember interacted words only when the user types in the right span
-          var numInStr = targetId ? targetId.match(/(\d+)$/) : null;
-          if (numInStr && parseInt(numInStr[0], 10)) {
-            self.typedWords[ $(spanElem).attr('id') ] = true;
-          }
-          
-          if (isPrintableChar(e)) {
-            throttle(function () {
-              if (data.str !== target) {
-                // Predict from last edited token onwards
-                $target.find('span').each(function(i, elem){
-                  // TODO
-                });
-                var query = {
-                  source: source,
-                  target: target,
-                  caretPos: pos,
-                  numResults: 1
-                }
-                var itpCfg = cfg(), itp = itpCfg.itpServer;
-                if (suffixHasUserCorrections.length === 0 && conf.mode != 'PE') {
-                  itp.setPrefix(query);
-                }
-                else {
-                  itp.getTokens(query);
-                }
-              }
-            }, throttle_ms);
-          }
+        var spanElem = $target.editable('getTokenAtCaretPos', pos).elem;
+        if (spanElem && spanElem.parentNode && $(spanElem.parentNode).is('.editable-token')) {
+          spanElem = spanElem.parentNode;
         }
+        var suffixHasUserCorrections = $(spanElem).nextAll('.editable-token').filter(function(index, elem){
+          return elem.dataset.validated === "true";
+        });
+        
+        var targetId = $(spanElem).attr('id');
+        // Remember interacted words only when the user types in the right span
+        var numInStr = targetId ? targetId.match(/(\d+)$/) : null;
+        if (numInStr && parseInt(numInStr[0], 10)) {
+          self.typedWords[ $(spanElem).attr('id') ] = true;
+        }
+
+        if (e.which === 13) {
+          // Ctrl + ENTER after the last word will validate the current transcription.
+          if (e.ctrlKey || pos === target.length) {
+            $target.trigger("validate", [data.str]);
+          } else {
+            // Prevent newlines, as in keydown event.
+            e.preventDefault();
+          }
+          e.stopPropagation();
+        } else {
+          if ( !doesTriggerInteraction(e) ) return;
+          throttle(function(){
+//            // Predict from last edited token onwards
+//            $target.find('span').each(function(i, elem){
+//              // TODO
+//            });
+            var query = {
+              source: source,
+              target: target,
+              caretPos: pos,
+              numResults: 1
+            }
+            var itpCfg = cfg(), itp = itpCfg.itpServer;
+            if (suffixHasUserCorrections.length === 0 && conf.mode != 'PE') {
+              itp.setPrefix(query);
+            } else {
+              itp.getTokens(query);
+            }
+          }, throttle_ms);
+        }
+
       });
-    }
+    } // attachUIEvents
    
-  };
+  }; // ItpEvents
 
   module.exports = ItpEvents; 
 

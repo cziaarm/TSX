@@ -50,12 +50,14 @@
   window.require = function(module, callback, refusePadding) {
     
     var url = window.require.resolve(module);
-
     if (require.cache[url]) {
+	console.log("LOADING FROM CACHE: "+url);
       // NOTE The callback should always be called asynchronously
       if (callback) setTimeout(function(){callback(require.cache[url])}, 0);
       return require.cache[url];
-    }
+    }else{
+	console.log("NOT LOADING FROM CACHE: "+url);
+	}
     
     var exports;
     var request = new XMLHttpRequest();
@@ -68,6 +70,8 @@
 
       if (window.require.cache[url]) {
         exports = window.require.cache[url];
+	console.log("LOADING FROM CACHE: "+url);
+      //
       }
       else if (this.getResponseHeader('content-type').indexOf('application/json') != -1) { 
         exports = JSON.parse(this.responseText);

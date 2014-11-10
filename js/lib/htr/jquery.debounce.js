@@ -24,14 +24,14 @@ $.extend({
 		return function() {
 
 			var args = arguments;
-            ctx = ctx || this;
+			ctx = ctx || this;
 
 			invokeAsap && !timer && fn.apply(ctx, args);
 
 			clearTimeout(timer);
 
 			timer = setTimeout(function() {
-				!invokeAsap && fn.apply(ctx, args);
+				invokeAsap || fn.apply(ctx, args);
 				timer = null;
 			}, timeout);
 
@@ -49,18 +49,16 @@ $.extend({
 			needInvoke = true;
 			ctx = ctx || this;
 
-			if(!timer) {
-				(function() {
-					if(needInvoke) {
-						fn.apply(ctx, args);
-						needInvoke = false;
-						timer = setTimeout(arguments.callee, timeout);
-					}
-					else {
-						timer = null;
-					}
-				})();
-			}
+			timer || (function() {
+				if(needInvoke) {
+					fn.apply(ctx, args);
+					needInvoke = false;
+					timer = setTimeout(arguments.callee, timeout);
+				}
+				else {
+					timer = null;
+				}
+			})();
 
 		};
 

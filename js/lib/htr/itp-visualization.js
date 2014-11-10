@@ -156,6 +156,10 @@
 
     // get the aligned html ids for source and target tokens
     self.getAlignmentIds = function(alignments, sourcespans, targetspans) {
+      if (alignments.length !== sourcespans.length || alignments[0].length !== targetspans.length) {
+        console.warn("Alignments do not match!!!", alignments, sourcespans, targetspans); 
+        return;
+      }
       // sourceal stores ids of target spans aligned to it
       var sourceal = [];
       sourceal.length = alignments.length;
@@ -247,16 +251,15 @@
       var targetspans = $('.editable-token', $target);
     
       var aligids = self.getAlignmentIds(alignments, sourcespans, targetspans);  
-
-      // sourceal stores ids of target spans aligned to it
-      var sourceal = aligids.sourceal;
-      var targetal = aligids.targetal;
-
-      // add mouseenter mouseleave events to source spans
-      self.addAlignmentEvents($source(), sourcespans, sourceal);
-
-      // add mouseenter mouseleave events to target spans
-      self.addAlignmentEvents($target, targetspans, targetal);
+      if (aligids) {
+        // sourceal stores ids of target spans aligned to it
+        var sourceal = aligids.sourceal;
+        var targetal = aligids.targetal;
+        // add mouseenter mouseleave events to source spans
+        self.addAlignmentEvents($source(), sourcespans, sourceal);
+        // add mouseenter mouseleave events to target spans
+        self.addAlignmentEvents($target, targetspans, targetal);
+      }
     }
 
 

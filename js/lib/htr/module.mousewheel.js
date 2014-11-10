@@ -37,6 +37,7 @@ require("jquery.hotkeys");
       pos--;
       if (pos < 0) {
         pos = 0;
+        self.change(null); // jandreu wants to be notified when reaching the bottom of the stack 
         return;
       }
       //dump("onMoveDown");
@@ -85,10 +86,10 @@ require("jquery.hotkeys");
         }
         // block scroll over element
         return false;
-      }).bind('keydown', 'Alt+up', function(e){
+      }).bind('keydown', 'Ctrl+up', function(e){
         e.preventDefault(); // prevent scrolling
         onMoveUp(e);
-      }).bind('keydown', 'Alt+down', function(e){ 
+      }).bind('keydown', 'Ctrl+down', function(e){ 
         e.preventDefault(); // prevent scrolling
         onMoveDown(e);
       });

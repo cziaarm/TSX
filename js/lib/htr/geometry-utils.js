@@ -98,7 +98,54 @@
       }
       return highestIndex + 1;
     },
-  
+
+    getNodeAtCaretPosition: function(node, pos) {
+      var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false)
+
+      // find HTML text element in cursor position
+      while (walker.nextNode()) {
+        var elem = walker.currentNode;
+        if ((pos - elem.length) >= 0) pos -= elem.length;
+        else break;
+      }
+
+      return {node: elem, pos: pos};
+    },
+
+    getXYFromCaretRect: function(node, pos) {
+      var caretPos = this.getNodeAtCaretPosition(node, pos);
+      node = caretPos.node;
+      pos = caretPos.pos;
+
+      var x, y, range = document.createRange();
+      try {
+        range.setStart(node, pos);
+        range.collapse(true);
+        caretRect = range.getClientRects()[0];
+      }
+      catch (err) {
+        console.log('ERROR', err);
+      }
+ 
+      return caretRect; 
+    },
+
+    getCaretPositionFromXY: function(node, x, y) {
+      var len = $(node).text().length;
+      var closestPos, minDist = 10000000;
+      for (var pos = 0; pos <= len; pos++) {
+        var rect = this.getXYFromCaretRect(node, pos);
+        if (rect && y >= rect.top && y <= rect.bottom) {
+          var dist = Math.abs(x - (rect.left + rect.right)/2);
+          if (dist < minDist) {
+            minDist = dist;
+            closestPos = pos;
+          } 
+        }
+      }
+      return closestPos;
+    },
+      
   };
 
 })('object' === typeof module ? module : {}, this);
