@@ -80,7 +80,13 @@
 
 <script>
 	$(document).ready(function(){
-		tsxConroller = new TSXController({data_server: "/local_data", file_panel: "#tsx-file-panel", thumb_panel: "#tsx-thumb-panel"});
+		if(window.location.host.match(/devorkin/)){
+			var data_server = "/local_data";
+		}else{
+			var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerBentham/rest/";
+		}
+		
+		tsxConroller = new TSXController({data_server: data_server, file_panel: "#tsx-file-panel", thumb_panel: "#tsx-thumb-panel"});
 	});
 </script>
 
