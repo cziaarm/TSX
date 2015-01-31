@@ -1,0 +1,92 @@
+body { padding 0; margin: 0; }
+
+.tsx-panel-control {float: right; position: relative; top: -7px;}
+
+/* file tree css*/
+
+#tsx-file-panel { overflow: auto;}
+#tsx-thumb-panel { overflow: auto;}
+
+/*tei CodeMirror css */
+
+.tsx-htr-available { color: #0f0; }
+
+.tsx-line-selected { font-weight: bold; }
+.tsx-line-selected > span { color: #000; }
+
+.CodeMirror { color: #aaa; }
+.CodeMirror .tsx-line-hovered { color: #000; }
+
+span.tei-del{text-decoration:line-through}
+span.tei-underscore{text-decoration:underline;}
+span.tei-add{vertical-align:baseline;font-size:0.8em;position:relative;top:-0.4em}
+span.tei-unclear{border-bottom:1px dotted #000}
+span.tei-unclear:after{content:"[?]"}
+span.tei-note{border:1px solid #999}
+span.tei-hi{text-decoration:underline} 
+span.tei-foreign{border-bottom:1px dotted #0a0}
+span.tei-sic{border-bottom:1px dotted #aa0}
+span.tei-head{display:block;font-size:large}
+span.tei-gap:after{content:"[ . . . ]"}
+span.superscript{text-decoration:none;vertical-align:baseline;position:relative;top:-0.4em}
+
+
+/*Custom icons for TEI (which I'll have to make more of*/
+@font-face {
+	font-family: 'icomoon';
+	src:url('/fonts/icomoon.eot?pwcuv3');
+	src:url('/fonts/icomoon.eot?#iefixpwcuv3') format('embedded-opentype'),
+		url('/fonts/icomoon.woff?pwcuv3') format('woff'),
+		url('/fonts/icomoon.ttf?pwcuv3') format('truetype'),
+		url('/fonts/icomoon.svg?pwcuv3#icomoon') format('svg');
+	font-weight: normal;
+	font-style: normal;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+	font-family: 'icomoon';
+	speak: none;
+	font-style: normal;
+	font-weight: normal;
+	font-variant: normal;
+	text-transform: none;
+	line-height: 1;
+
+	/* Better Font Rendering =========== */
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.icon-heading:before {
+	content: "\e600";
+}
+
+.icon-pagebreak:before {
+	content: "\e601";
+}
+
+
+
+/*.tsx-line-hovered > span { color: #f00; }*/
+
+
+/* Raphael seems to position the svg at other than 0x0 */
+/*svg {
+   top: 0 !important;
+   left: 0 !important;
+}
+*/
+/*body { padding-top: 70px; }*/
+/*
+#draggablePanels .panel-heading {
+        cursor: move;
+}
+*/
+/*
+#tsx-documents { width: 30%; }
+*/
+/*
+.panel-body { height: 100%; }
+#tsx-image { height: 100%; }
+
+*/
