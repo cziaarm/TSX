@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TSX</title>
+
+
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+	<link href="/css/bootstrap-dialog.css" rel="stylesheet">
+	<link rel="stylesheet" href="/css/codemirror.css"/>	
+	<link rel="stylesheet" href="/js/addons/merge/merge.css"/>
+    <link href="/css/tsx.css" rel="stylesheet">
+	
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="/js/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="/js/bootstrap.min.js"></script>
+	<script src="/js/bootstrap-dialog.js"></script> 
+    <script src="/js/raphael-min.js"></script>
+    <script src="/js/jquery.mousewheel.min.js"></script> 
+	<!--<script type="text/javascript" src="/js/lib/htr/jquery.debounce.js"></script>-->
+
+
+	<script src="/js/codemirror.js"></script>
+	<script src="/js/diff_match_patch.js"></script>
+	<script src="/js/merge.js"></script>
+
+<!--	<script type="text/javascript" src="/js/jquery.xslt.js"></script> -->
+
+	<script type="text/javascript" src="/js/htr/require.custom.js"></script>
+
+	
+    <script src="/js/tsx.js"></script> 
+
+
+
+  </head>
+
+  <body>
+
+<!-- Fixed navbar -->
+    <nav class="navbar navbar-default" role="navigation">
+      <div class="container-fluid">
+        <div class="navbar-header">
+      	  <a class="navbar-brand" href="http://transcriptorium.eu">
+           <img alt="Brand" src="/images/tS_logo.jpg" width="30"  />
+         </a>
+		 <a class="navbar-brand" href="http://ec.europa.eu/research/index.cfm">
+           <img alt="Brand" src="/images/flag_yellow_high.png"  />
+         </a>
+        </div>
+		<ul class="nav navbar-nav">
+			<li><a href="/">Home</a></li>
+			<li class="active"><a href="/desk">Desk</a></li>
+			<li><a href="/userarea">User area</a></li>
+		</ul>
+
+		<button type="button" class="btn btn-default navbar-btn pull-right">Sign in</button>
+		<button type="button" class="btn btn-default navbar-btn pull-right">Create account</button>
+      </div>
+    </nav>
+
+<!-- Bootstrap 3 panel list. -->
+<div class="container-fluid">
+   <div class="row">
+  	<div class="col-md-7 col-md-push-5">
+	    <div class="panel panel-default">
+			<div class="panel-heading">Image
+				<div id="tsx-image-control" class="btn-toolbar tsx-panel-control" role="toolbar" aria-label="...">
+					<!--<div class="btn-group" role="group" aria-label="Zoom controls">-->
+						<button id="tsx-zoom-pause" type="button" class="btn btn-default" title="Hold current zoom"><span class="glyphicon glyphicon-pause"></span></button>
+						<button id="tsx-zoom-in" type="button" class="btn btn-default" title="Zoom in"><span class="glyphicon glyphicon-zoom-in"></span></button>
+						<button id="tsx-zoom-reset" type="button" class="btn btn-default" title="Reset zoom"><span class="glyphicon glyphicon-record"></span></button>
+						<button id="tsx-zoom-out" type="button" class="btn btn-default" title="Zoom out"><span class="glyphicon glyphicon-zoom-out"></span></button>
+					<!--</div> -->
+				</div>
+			</div>
+			<div class="panel-body" id="tsx-image-panel">
+				<div id="tsx-image"></div>
+			</div>
+	    </div>
+	</div>
+  	<div class="col-md-5 col-md-pull-7">
+	    <div class="panel panel-default">
+			<div class="panel-heading">Transcript
+				<div id="tsx-edit-control" class="btn-toolbar tsx-panel-control" role="toolbar" aria-label="...">
+						<button id="tsx-save-tei" type="button" class="btn btn-default" title="Save changes"><span class="glyphicon glyphicon-save"></span></button>
+						<button id="tsx-toggle-transcript" type="button" class="btn btn-default" title="Clear transcript"><span class="glyphicon glyphicon-file"></span></button>
+				</div>
+			</div>
+			<div class="panel-body" id="tsx-edit-panel">
+				<ul class="nav nav-tabs">
+					<li role="presentation" class="active"><a data-toggle="tab" href="#tsx-edit">Edit</a></li>
+					<li role="presentation"><a data-toggle="tab" href="#tsx-preview">Preview</a></li>
+					<li role="presentation"><a data-toggle="tab" href="#tsx-diffs">Diffs</a></li>
+				</ul>
+				<div class="tab-content">
+					<div id="tsx-edit" class="tab-pane fade in active">
+						<div id="tsx-tei-buttons" class="btn-toolbar" role="toolbar" aria-label="...">
+							<div class="btn-group" role="group" aria-label="Zoom controls">
+								<button id="tsx-tei-linebreak" type="button" class="btn btn-default" title="Pagebreak"><span class="icon icon-pagebreak"></span></button>
+								<button id="tsx-tei-heading" type="button" class="btn btn-default" title="Heading"><span class="icon icon-heading"></span></button>
+								<button id="tsx-suggest-word" type="button" class="btn btn-default" title="Suggest next word">Sw<!--<span class="icon icon-suggest-word"></span>--></button>
+								<button id="tsx-suggest-line" type="button" class="btn btn-default" title="Suggest whole line">Sl<!--<span class="icon icon-suggest-line"></span>--></button>
+					
+							</div>
+						</div>
+<!--						<div id="tsx-tei-buttons" rel="format" style="display: block;">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-linebreak.png?20141114T085607Z" width="22" height="22" alt="Line break" title="Line break" rel="line-break" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-pagebreak.png?20141114T085607Z" width="22" height="22" alt="Page break" title="Page break" rel="pagebreak" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-heading.png?20141114T085607Z" width="22" height="22" alt="Heading" title="Heading" rel="heading" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-paragraph.png?20141114T085607Z" width="22" height="22" alt="Paragraph" title="Paragraph" rel="paragraph" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-add.png?20141114T085607Z" width="22" height="22" alt="Addition" title="Addition" rel="addition" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-deletion.png?20141114T085607Z" width="22" height="22" alt="Deletion" title="Deletion" rel="deletion" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-questionable.png?20141114T085607Z" width="22" height="22" alt="Questionable" title="Questionable" rel="questionable" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-illegible.png?20141114T085607Z" width="22" height="22" alt="Illegible" title="Illegible" rel="illegible" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-note.png?20141114T085607Z" width="22" height="22" alt="Marginal Note" title="Marginal Note" rel="note" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-underline.png?20141114T085607Z" width="22" height="22" alt="Underline" title="Underline" rel="underline" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-superscript.png?20141114T085607Z" width="22" height="22" alt="SuperScript" title="SuperScript" rel="superscript" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-sic.png?20141114T085607Z" width="22" height="22" alt="Unusual spelling" title="Unusual spelling" rel="sic" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-foreign.png?20141114T085607Z" width="22" height="22" alt="Foreign" title="Foreign" rel="foreign" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-ampersand.png?20141114T085607Z" width="22" height="22" alt="Ampersand" title="Ampersand" rel="ampersand" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-longdash.png?20141114T085607Z" width="22" height="22" alt="Long dash" title="Long dash" rel="longdash" class="tool tool-button">
+							<img src="/td/extensions/JBTEIToolbar/images/jb-button-comment.png?20141114T085607Z" width="22" height="22" alt="Comment" title="Comment" rel="commment" class="tool tool-button">
+						</div>-->
+						<div id="tsx-transcript-editor"></div>
+					</div>
+					<div id="tsx-preview" class="tab-pane fade">
+						
+					</div>
+					<div id="tsx-diffs" class="tab-pane fade">
+						<p>The originally loaded transcript is on the left and the edit is on the right.</p>
+						<div id="tsx-transcript-diffs"></div>
+					</div>
+				</div>
+			</div>
+	    </div>
+	</div>
+   </div>
+</div>
+
+<div id="htr_stuff"></div>
+<div id="htr_image"></div>
+<div id="htr_target"></div>
+
+<script>
+	$(document).ready(function(){
+	if(window.location.host.match(/devorkin/)){
+		var data_server = "/local_data";
+	}else{
+		var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerBentham/rest/";
+	}
+	
+	tsxConroller = new TSXController({data_server: data_server, view_box: "#tsx-image", image_panel: "#tsx-image-panel", edit_panel: "#tsx-edit-panel"});
+	});
+</script>
+</body>
+</html>
