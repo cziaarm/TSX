@@ -10,8 +10,8 @@
 		 </a>
 	     </div>
 	     <ul class="nav navbar-nav">
-		<li <?php print $menu['home'];?>><a href="./">Home</a></li>
-		<li <?php print $menu['desk'];?>><a href="./desk">Desk</a></li>
+		<li <?php print $menu['index'];?>><a href="./">Home</a></li>
+		<li <?php print $menu['desk']; print $menu['transcribe'];?>><a href="./desk">Desk</a></li>
 		<li <?php print $menu['userarea'];?>><a href="./userarea">User area</a></li>
 	    </ul>
 	    <div id="tsx-not-logged-in">

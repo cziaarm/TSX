@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-<?php require("./head.inc.php");?>
-  <body>
 <?php 
-$menu["desk"] = $active_menu;
-require("./header.inc.php");?>
+$knowthyself = basename(__FILE__, '.php');
+require("./head.inc.php");?>
+  <body>
+<?php require("./header.inc.php");?>
 
 <!-- Bootstrap 3 panel list. -->
 <div class="container-fluid">
@@ -34,11 +34,11 @@ require("./header.inc.php");?>
 
 <script>
 	$(document).ready(function(){
-		if(window.location.host.match(/devorkin/)){
-			var data_server = "/local_data";
-		}else{
+//		if(window.location.host.match(/devorkin/)){
+//			var data_server = "/local_data";
+//		}else{
 			var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerTesting/rest/";
-		}
+//		}
 		
 		tsxController = new TSXController({data_server: data_server, file_panel: "#tsx-file-panel", thumb_panel: "#tsx-thumb-panel"});
 	});

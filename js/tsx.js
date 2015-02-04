@@ -83,6 +83,112 @@ function TSX(config){
 	this.init(config);
 }
 
+
+/* ------------------------------------- */
+//TSXPage.prototype = new TSX();
+//TSXPage.constructor = TSXPage;
+
+
+function TSXPage( ){
+	var self = this;
+	this.name ="TSXPage";
+
+	this.init = function() {
+		self.data_store = self.data_server+"/"+self.ref;
+		self.set_refs();
+		self.init_image_panel();		
+		self.init_edit_panel();	
+		self.init_file_panel();	
+		self.init_thumb_panel();
+	}
+	this.set_refs = function(){
+		self.ref_array = [];
+		self.ref_array = window.location.hash.replace(/^#/, "").split('/');
+
+		if(self.ref_array[0] != undefined) self.col_ref = self.ref_array[0];
+		if(self.ref_array[1] != undefined) self.doc_ref = self.ref_array[1];
+		if(self.ref_array[2] != undefined) self.page_ref = self.ref_array[2];
+/*
+		console.log("COL REF: "+self.col_ref);
+		console.log("DOC REF: "+self.doc_ref);
+		console.log("PAGE REF: "+self.page_ref);
+		
+		console.log(self.ref_array);
+*/	
+	}
+	this.init_image_panel = function(){	
+		if(self.image_panel == undefined) return false;
+		
+		//set height (according to page (NB assumes no scrolling.. errk)
+		self.image_panel_height = $(window).height() - $(self.image_panel).offset().top - $(self.image_panel).siblings(".panel-heading").offset().top;
+		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
+		$(self.image_panel).height( self.image_panel_height );
+	}
+
+	this.init_edit_panel = function(){	
+		if(self.edit_panel == undefined) return false;
+		//set height (according to page (NB assumes no scrolling.. errk)
+		self.edit_panel_height = $(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top;
+		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
+		$(self.edit_panel).height( self.edit_panel_height );
+
+		self.edit_height = self.edit_panel_height - $("ul.nav-tabs", self.edit_panel).height() - $("#tsx-tei-buttons", self.edit_panel).height();		
+	}
+
+	this.init_file_panel = function(){	
+		if(self.file_panel == undefined) return false;
+		
+		//set height (according to page (NB assumes no scrolling.. errk)
+		self.file_panel_height = $(window).height() - $(self.file_panel).offset().top - $(self.file_panel).siblings(".panel-heading").offset().top;
+		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
+		$(self.file_panel).height( self.file_panel_height );
+	}
+	this.init_user_panel = function(){	
+		if(self.user_panel == undefined) return false;
+		
+		//set height (according to page (NB assumes no scrolling.. errk)
+		self.user_panel_height = $(window).height() - $(self.user_panel).offset().top - $(self.user_panel).siblings(".panel-heading").offset().top;
+		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
+		$(self.user_panel).height( self.user_panel_height );
+	}
+	this.init_thumb_panel = function(){	
+		if(self.thumb_panel == undefined) return false;
+		
+		//set height (according to page (NB assumes no scrolling.. errk)
+		self.thumb_panel_height = $(window).height() - $(self.thumb_panel).offset().top - $(self.thumb_panel).siblings(".panel-heading").offset().top;
+		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
+		$(self.thumb_panel).height( self.thumb_panel_height );
+	}
+	this.Blocker = function(selector) {
+		require("jquery.blockUI");
+		var $elem = $(selector);
+    
+		this.blockUI = function(msg) {
+			$elem.block({
+				message: msg,
+				centerY: false,
+				css: {
+			//          fontSize: "150%", 
+					  top: $(document).scrollTop() + 50,
+					  width: $elem.width() * 0.6,
+					  padding: "1% 2%", 
+					  borderWidth: "3px", 
+					  borderRadius: "10px", 
+					  '-webkit-border-radius': "10px", 
+					  '-moz-border-radius': "10px" 
+				}
+			});  
+		};
+    
+		this.unblockUI = function() {
+			$elem.unblock();
+		};
+	}
+
+
+	self.init();
+}
+
 function TSXUser( ){
 	var self = this;
 	this.name ="TSXUser";
@@ -441,84 +547,6 @@ function TSXFiles( ){
 }
 
 
-/* ------------------------------------- */
-//TSXPage.prototype = new TSX();
-//TSXPage.constructor = TSXPage;
-
-
-function TSXPage( ){
-	var self = this;
-	this.name ="TSXPage";
-
-	this.init = function() {
-		self.data_store = self.data_server+"/"+self.ref;
-		self.set_refs();
-		self.init_image_panel();		
-		self.init_edit_panel();	
-		self.init_file_panel();	
-		self.init_thumb_panel();
-	}
-	this.set_refs = function(){
-		self.ref_array = [];
-		self.ref_array = window.location.hash.replace(/^#/, "").split('/');
-
-		if(self.ref_array[0] != undefined) self.col_ref = self.ref_array[0];
-		if(self.ref_array[1] != undefined) self.doc_ref = self.ref_array[1];
-		if(self.ref_array[2] != undefined) self.page_ref = self.ref_array[2];
-/*
-		console.log("COL REF: "+self.col_ref);
-		console.log("DOC REF: "+self.doc_ref);
-		console.log("PAGE REF: "+self.page_ref);
-		
-		console.log(self.ref_array);
-*/	
-	}
-	this.init_image_panel = function(){	
-		if(self.image_panel == undefined) return false;
-		
-		//set height (according to page (NB assumes no scrolling.. errk)
-		self.image_panel_height = $(window).height() - $(self.image_panel).offset().top - $(self.image_panel).siblings(".panel-heading").offset().top;
-		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
-		$(self.image_panel).height( self.image_panel_height );
-	}
-
-	this.init_edit_panel = function(){	
-		if(self.edit_panel == undefined) return false;
-		//set height (according to page (NB assumes no scrolling.. errk)
-		self.edit_panel_height = $(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top;
-		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
-		$(self.edit_panel).height( self.edit_panel_height );
-
-		self.edit_height = self.edit_panel_height - $("ul.nav-tabs", self.edit_panel).height() - $("#tsx-tei-buttons", self.edit_panel).height();		
-	}
-
-	this.init_file_panel = function(){	
-		if(self.file_panel == undefined) return false;
-		
-		//set height (according to page (NB assumes no scrolling.. errk)
-		self.file_panel_height = $(window).height() - $(self.file_panel).offset().top - $(self.file_panel).siblings(".panel-heading").offset().top;
-		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
-		$(self.file_panel).height( self.file_panel_height );
-	}
-	this.init_user_panel = function(){	
-		if(self.user_panel == undefined) return false;
-		
-		//set height (according to page (NB assumes no scrolling.. errk)
-		self.user_panel_height = $(window).height() - $(self.user_panel).offset().top - $(self.user_panel).siblings(".panel-heading").offset().top;
-		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
-		$(self.user_panel).height( self.user_panel_height );
-	}
-	this.init_thumb_panel = function(){	
-		if(self.thumb_panel == undefined) return false;
-		
-		//set height (according to page (NB assumes no scrolling.. errk)
-		self.thumb_panel_height = $(window).height() - $(self.thumb_panel).offset().top - $(self.thumb_panel).siblings(".panel-heading").offset().top;
-		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
-		$(self.thumb_panel).height( self.thumb_panel_height );
-	}
-
-	self.init();
-}
 
 
 
@@ -532,6 +560,8 @@ function TSXDocument( ){
 
 	this.init = function(){
 		var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref;
+		//self.i_lock = new self.Blocker('#tsx-image');
+		//self.i_lock.blockUI("Loading Image");
 		self.load_xml(url, self.load_image);
 	}
 	
@@ -559,6 +589,7 @@ function TSXDocument( ){
 			// Read, scale and set the dimensions based on image and available space in panel 
 			self.set_dimensions(img);
 			self.init_viewer();
+			//self.i_lock.ublockUI();
 			self.tsxTranscript = new TSXTranscript(self);
 		});
 	}
@@ -616,7 +647,9 @@ function TSXDocument( ){
 				$("span", this).removeClass("glyphicon-pause").addClass("glyphicon-play");
 			}
 
-		});			
+		});
+
+	
 	}
 	
 	this.reset_view = function(){
@@ -742,6 +775,9 @@ function TSXTranscript( tsxDoc ){
 		var latest = Math.max.apply(Math,timestamps);
 		self.xml_path = $("tsList transcripts timestamp:contains("+latest+")",tsxDoc.pageData).parent("transcripts").find("url").text();
 		console.log("We should load the transcript from ", self.xml_path);
+		
+		self.lock = new self.Blocker('#tsx-transcript-editor');
+		self.lock.blockUI("Loading Transcript");
 		self.load_xml(self.xml_path, self.handle_transcript);
 		self.cm = CodeMirror(document.getElementById("tsx-transcript-editor"),{lineNumbers: true, gutters: ["CodeMirror-linenumbers", "tsx-htr-available"]});
 		self.cm.setSize("auto", self.edit_height);		
@@ -750,12 +786,13 @@ function TSXTranscript( tsxDoc ){
 		if(ele == undefined) return "";
 		return ele.toString().replace(/ xmlns=\"[^\"]*\"/,""); 
 	}
-	this.handle_transcript = function(data){
+	this.handle_transcript = function(data){	
 		
 		self.xmlData = data;
 		//The raph set for the line polygons
 		tsxDoc.poly_set = tsxDoc.raph.set();
 		self.text = "";
+		self.lines = ""; //this will be a bunch of newlines to scope out the no-transcript-load scenario
 		self.polys = {};
 		$("TextLine", data).each(function(i){
 
@@ -774,15 +811,22 @@ function TSXTranscript( tsxDoc ){
 			//make text block for codemirror
 			self.text += raw_text_line;
 			//add new line if not last line
-			if((i+1)!=$("TextLine", data).length) self.text +="\n";
+			if((i+1)!=$("TextLine", data).length){
+				self.text +="\n";
+				self.lines +="\n";
+			}
 			//store this stuff in the poly object
 			poly.text = raw_text_line;
 			poly.ref = line_ref;
 			self.polys[i]=poly;
 		});
 		
-		self.cm.setValue(self.text);
+
+		//	self.cm.setValue(self.text);
+		self.cm.setValue(self.lines);
 		self.cm.markClean();
+		
+		self.lock.unblockUI();
 		
 		//assign refs to cm line objects
 		var i=0;
@@ -829,7 +873,7 @@ function TSXTranscript( tsxDoc ){
 				self.render_tei("");
 
 			}else{
-				self.cm.setValue(self.text);//This breaks the gutterMarks... for some reason
+				self.cm.setValue(self.text);
 				var i=0;// This is why!!
 				self.cm.eachLine(function(cm_line){
 					cm_line.ref=self.polys[i].ref;
@@ -1094,31 +1138,6 @@ function TSXTranscript( tsxDoc ){
 		return rec;
 	}
 	
-	this.Blocker = function(selector) {
-		var $elem = $(selector);
-    
-		this.blockUI = function(msg) {
-			$elem.block({
-				message: msg,
-				centerY: false,
-				css: {
-			//          fontSize: "150%", 
-					  top: $(document).scrollTop() + 50,
-					  width: $elem.width() * 0.6,
-					  padding: "1% 2%", 
-					  borderWidth: "3px", 
-					  borderRadius: "10px", 
-					  '-webkit-border-radius': "10px", 
-					  '-moz-border-radius': "10px" 
-				}
-			});  
-		};
-    
-		this.unblockUI = function() {
-			$elem.unblock();
-		};
-	}
-
 	
 	self.init();
 }
@@ -1132,7 +1151,7 @@ function TSXHTR( tsxTranscript ){
 
 		self.wordgraph_url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/wordgraphs";
 		self.load_json(self.wordgraph_url, self.handle_wordgraphs);
-
+		
 	}
 	this.handle_wordgraphs = function(data){
 		//TODO here we check the available wordgraph refs against what is in the transcript
@@ -1156,8 +1175,10 @@ function TSXHTR( tsxTranscript ){
 			if(ids.length) tsxTranscript.cm.setGutterMarker(cm_line,"tsx-htr-available",self.makeMarker());	
 		});
 		//fix gutter marker snafu
+		//setTimeout(function(){ $(".CodeMirror-gutter-wrapper").css({width: "39px", left: "-39px" }); }, 1000);
 		$(".CodeMirror-gutter-wrapper").css({width: "39px", left: "-39px" });
 
+		
 	}
 	
 	this.makeMarker = function() {
@@ -1182,7 +1203,10 @@ function TSXHTR( tsxTranscript ){
 		return tsxTranscript.polys[tsxTranscript.cm.getCursor().line].line_ref;
 	}
 	this.handle_suggestions = function(data){
-		console.log(data);
+		var sug_lines = data.split(/\n/);
+		for(var i in sug_lines){
+			console.log("**",sug_lines[i]);
+		}
 	}
 
 	self.init();

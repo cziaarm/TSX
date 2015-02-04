@@ -1,6 +1,6 @@
 <?php
-$TSX_root = "/TSX/";
-$active_menu = 'class="active"';
+require("./server.php");
+$menu[$knowthyself] = 'class="active"';
 ?>
   <head>
     <meta charset="utf-8">
@@ -11,11 +11,22 @@ $active_menu = 'class="active"';
     <!-- general css libs -->
     <link href="<?php print $TSX_root; ?>/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?php print $TSX_root; ?>/css/bootstrap-dialog.css" rel="stylesheet">
-    <!-- desk css libs -->
-    <link href="<?php print $TSX_root; ?>/css/style.min.css" rel="stylesheet"/>
-    <!-- transcribe css libs -->
-    <link href="<?php print $TSX_root; ?>/css/codemirror.css" rel="stylesheet"/>	
-    <link href="<?php print $TSX_root; ?>/css/merge.css" rel="stylesheet"/>
+<?php
+//Load the appropriate css (nodejs and require would be preferable...)
+switch($knowthyself){
+	case "desk" : { ?>
+		<!-- desk css libs -->
+		<link href="<?php print $TSX_root; ?>/css/style.min.css" rel="stylesheet"/>
+	<?php break;}
+	case "transcribe" : {?>
+		<!-- transcribe css libs -->
+		<link href="<?php print $TSX_root; ?>/css/codemirror.css" rel="stylesheet"/>	
+		<link href="<?php print $TSX_root; ?>/css/merge.css" rel="stylesheet"/>
+	
+	<?php break;}
+	default: {}
+}
+?>
     <!-- tsx css -->
     <link href="<?php print $TSX_root; ?>/css/tsx.css" rel="stylesheet">
 
@@ -34,14 +45,27 @@ $active_menu = 'class="active"';
     <script src="<?php print $TSX_root; ?>/js/jquery.validate.min.js"></script>
     <script src="<?php print $TSX_root; ?>/js/jquery.cookie.js"></script>
     <script src='https://www.google.com/recaptcha/api.js'></script> 
-    <!-- desk js libs -->
-    <script src="<?php print $TSX_root; ?>/js/jstree.min.js"></script>
-    <!-- transcribe js libs -->
-    <script src="<?php print $TSX_root; ?>/js/raphael-min.js"></script>
-    <script src="<?php print $TSX_root; ?>/js/jquery.mousewheel.min.js"></script> 
-    <script src="<?php print $TSX_root; ?>/js/codemirror.js"></script>
-    <script src="<?php print $TSX_root; ?>/js/diff_match_patch.js"></script>
-    <script src="<?php print $TSX_root; ?>/js/merge.js"></script>
+
+	<?php
+//Load the appropriate js (nodejs and require would be preferable...)
+switch($knowthyself){
+	case "desk" : { ?>
+		<!-- desk js libs -->
+		<script src="<?php print $TSX_root; ?>/js/jstree.min.js"></script>
+	<?php break;}
+	case "transcribe" : {?>
+		<!-- transcribe js libs -->
+		<script src="<?php print $TSX_root; ?>/js/raphael-min.js"></script>
+		<script src="<?php print $TSX_root; ?>/js/jquery.mousewheel.min.js"></script> 
+		<script src="<?php print $TSX_root; ?>/js/codemirror.js"></script>
+		<script src="<?php print $TSX_root; ?>/js/diff_match_patch.js"></script>
+		<script src="<?php print $TSX_root; ?>/js/merge.js"></script>	
+		<script src="<?php print $TSX_root; ?>/js/htr/require.custom.js"></script>
+
+	<?php break;}
+	default: {}
+}
+?>
     <!-- tsx js -->
     <script src="<?php print $TSX_root; ?>/js/tsx.js"></script> 
 
