@@ -261,7 +261,7 @@ function TSXUser( ){
 			//TODO the real one is post
 //			self.load_xml(self.data_server+"auth/login_debug?"+params, function(data){
 			self.save_xml(self.data_server+"auth/login", params, function(data){
-
+				console.log("userdata", data);
 				if(data){
 					$('#loginModal').modal("hide");
 					$.cookie("TSX_session", $("trpUserLogin > sessionId",data).text(), {expires: null});
@@ -1110,7 +1110,16 @@ function TSXTranscript( tsxDoc ){
 	this.render_tei = function(text){
 		//yuk but...
 //		console.log(text);
-		return text.replace(/\n/g,"<br/>").replace(/<hi/g, "<span").replace(/<\/hi/g,"</span").replace(/<span rend="/,"<span class=\"tei-");
+		var rendered = text.
+			//replace(/<hi/g, "<span").
+			//replace(/<\/hi/g,"</span").
+			replace(/<([^\/][^(hi)>]+)/g, '<span class="tei-$1"').
+			replace(/<hi rend="/,"<span class=\"tei-").
+			replace(/<\/[^>]+/g, '</span').
+			replace(/\n/g,"<br/>");
+
+		console.log(rendered);
+		return rendered;
 		//need to use a bona fide tei xslt here, but first attempts failed miserably so replaces and css...
 	}
 	this.draw_polygon = function(textLine, line){
