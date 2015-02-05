@@ -598,12 +598,27 @@ function TSXDocument( ){
 	this.name ="TSXDocument";
 
 	this.init = function(){
-		var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref;
 		//self.i_lock = new self.Blocker('#tsx-image');
 		//self.i_lock.blockUI("Loading Image");
-		self.load_xml(url, self.load_image);
+//		var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref;
+//		self.load_xml(url, self.load_image);
+		self.update_state();
+		$("body").on('cookieUpdate', function(){ //check again after (homemade) event
+			self.update_state();
+		});
+
+
 	}
-	
+	this.update_state = function(){
+
+		if($.cookie("TSX_session") != undefined){
+			var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref;
+			self.load_xml(url, self.load_image);
+		}else{
+			$("#tsx-edit-panel").html("<p>Please sign in to continue transcribing.</p>");
+			self.unload_image();
+		}
+	}
 	this.set_dimensions = function(img){
 		self.img = { orig : {x: 0, y: 0, w:0, h: 0},
 					scale: 0,
@@ -619,7 +634,9 @@ function TSXDocument( ){
 		self.img.scaled.h = self.img.orig.h*self.img.scale;					
 
 	}
-
+	this.unload_image = function(data){
+		$("#tsx-image").empty();
+	}
 	this.load_image = function(data){
 		self.pageData = data;
 		self.img_path = $("trpPage > url", data).text();
@@ -818,16 +835,28 @@ function TSXTranscript( tsxDoc ){
 		self.lock = new self.Blocker('#tsx-transcript-editor');
 		self.lock.blockUI("Loading transcription data");
 		self.load_xml(self.xml_path, self.handle_transcript);
-		self.cm = CodeMirror(document.getElementById("tsx-transcript-editor"),{lineNumbers: true, gutters: ["CodeMirror-linenumbers", "tsx-htr-available"]});
+		self.cm = CodeMirror(document.getElementById("tsx-transcript-editor"),{
+				lineNumbers: true, 
+				mode: "xml", 
+				lineWrapping: true,
+				gutters: ["CodeMirror-linenumbers", "tsx-htr-available"]
+			});
 		self.cm.setSize("auto", self.edit_height);		
 		self.cm.setOption("extraKeys", {
   			Enter: "goLineDown" ,
 			"Ctrl-Enter": function(cm){ cm.replaceSelection("\n"); },
 			Tab: function(cm){ 
+				self.tsxHTR.get_HTR_data(undefined, 1);
+				console.log("tab pressed");
+			},
+			"Shift-Tab": function(cm){ 
 				self.tsxHTR.get_HTR_data(undefined);
 				console.log("tab pressed");
 			}
 		});
+	}
+	this.unload_transcript = function(){
+		
 	}
 	this.removeNSAttr = function(ele){
 		if(ele == undefined) return "";
@@ -983,68 +1012,46 @@ function TSXTranscript( tsxDoc ){
 				});
 			}
 		});
-		
-		
 	}
+	
+	this.tei = {
+			"tsx-tei-underscore": {open: '<hi rend="underscore">', close: '</hi>'},
+			"tsx-tei-super": {open: '<hi rend="superscript">', close: '</hi>'},
+			"tsx-tei-comment": {open: '<!--', close: '-->'},
+			"tsx-tei-amp": {insert: '&amp;'},
+			"tsx-tei-longdash": {insert: '&#x2014;'},
+			"tsx-tei-gap": {insert: '<gap/>'},
+
+		};
+	
 	this.init_buttons = function(){
 		$("#tsx-suggest").on("click", function(){self.tsxHTR.get_HTR_data(undefined);});
+
+			$(".tsx-tei-insert").on("click",function(){			
+				self.cm.replaceSelection(self.tei[$(this).attr("id")].insert);
+			});
+			//wrap TEI tags around selected content
+			$(".tsx-tei-wrap").on("click",function(){
+				var text = self.cm.getSelection();
+				//check for special case
+				if(self.tei[$(this).attr("id")] != undefined){
+					var open = self.tei[$(this).attr("id")].open;
+					var close = self.tei[$(this).attr("id")].close;
+				}else{
+					open ='<'+$(this).attr("id").replace(/^tsx-tei-/,"")+'>';
+					close = open.replace(/^</, "</");
+				}
+				self.cm.replaceSelection(open+text+close);
+			});
+
+			
+			$("#tsx-tei-underscore").on("click", self.do_tei);
+		
+		
 /*		$("#tsx-suggest-word").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_word);});
 		$("#tsx-suggest-line").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_line);});*/
 	}
-	this.suggest_line = function(data){
-		var this_line = self.cm.getCursor().line;
-		self.cm.replaceRange(data.target, {line: this_line, ch: 0}, {line: this_line, ch: null});
-		self.cm.setCursor({line: (this_line+1), ch: 0});
-	}
-	this.suggest = function(data){
-		console.log("suggest word", data.target);
-		var this_line = self.cm.getCursor().line;
-		var ed_line = self.cm.getLine(this_line);
-		//		var ed_words = ed_line.split(/[\s]+/); //not ideal	
-		//so instead lets use the targetSegmentation data
-		var ed_words = [];
-		for(i in data.targetSegmentation){
-			if(data.targetSegmentation[i][0]>ed_line.length) break;
-			
-			//but we need to take into account what has already been entered which may bear no relation to suggested...
-			//better if we can get a from point suggestion from the HTR...
-			ed_words.push(ed_line.slice(data.targetSegmentation[i][0],data.targetSegmentation[i][1]));
-		}
-		ed_words = ed_words.filter(Boolean); //take out empty strings
-		
-//		console.log(ed_words.length, ed_words);
-		//next word at end of line...
-		var w = data.targetSegmentation[ed_words.length];
-		
-		//or wherever the cursor is...?
-//		console.log(data.target[self.cm.getCursor().ch]);
-		
-		//var w = data.targetSegmentation[];
-		
-//		console.log(w);
-		var slice_end = w[1];
-		var range_end = w[1];
-		var ed_line_end = (ed_line.length + w[1] - w[0]+1);
-		if((data.target[w[1]] != undefined && data.target[w[1]].match(/\s/)) || data.target.length == ed_line_end){
-			slice_end++;
-//			console.log("last char of sug is a space");
-		}else{
-//			console.log("last char of sug is NOT a space");
-			range_end--;
-		}
-//		console.log(w[0], slice_end);
-		var sug_word = data.target.slice(w[0],slice_end);
-//		console.log("*"+sug_word+"*");
-//		console.log("{line: "+this_line+", ch: "+w[0]+"}, {line: "+this_line+", ch: "+range_end+"}");
-		
-		self.cm.replaceRange(sug_word, {line: this_line, ch: w[0]}, {line: this_line, ch: range_end});
-		//if we have reached the end of the line go to next line...
-//		console.log(ed_line_end+" >= "+data.target.length);
-		if(ed_line_end >= data.target.length){
-//			console.log("moving cursor");
-			self.cm.setCursor({line: (this_line+1), ch: 0});
-		}
-	}
+	
 	this.render_diffs = function(){
 		  var target = "";
 		  target.innerHTML = "";
@@ -1231,18 +1238,7 @@ function TSXHTR( tsxTranscript ){
 			}
 		});
 		//fix gutter marker snafu
-		//setTimeout(function(){ $(".CodeMirror-gutter-wrapper").css({width: "39px", left: "-39px" }); }, 1000);
 		$(".CodeMirror-gutter-wrapper").css({width: "39px", left: "-39px" });
-/*
-		 var popover = $('#tsx-suggest').popover({
-			 trigger : 'click',  
-			 html: 'true',
-			 placement: 'right',
-			 container: "body"
-			 }).on('show.bs.popover', function() { 
-				self.get_HTR_data(undefined);
-			 });	
-*/
 	}
 	
 	this.makeMarker = function() {
@@ -1252,13 +1248,13 @@ function TSXHTR( tsxTranscript ){
 		return marker;
 	}
 
-	this.get_HTR_data = function(line_ref){
+	this.get_HTR_data = function(line_ref, num_words){
 		if(line_ref == undefined){
 			line_ref = self.get_line_ref();
 		}
 		var url = $("> nBestUrl", self.wordgraphs[line_ref]).text();
 		console.log("wordgrpahs here: ", $("> nBestUrl", self.wordgraphs[line_ref]).text());
-		self.load_xml(url, self.handle_suggestions, {line_ref: line_ref});
+		self.load_xml(url, self.handle_suggestions, {line_ref: line_ref, num_words: num_words});
 	}	
 	this.get_full_line_ref = function(){
 		return tsxTranscript.polys[tsxTranscript.cm.getCursor().line].full_line_ref;
@@ -1273,9 +1269,10 @@ function TSXHTR( tsxTranscript ){
 	this.suggestions = function(cm, sug) {
 
 		var edit_line = self.get_line();
-		var edit_re = new RegExp('^'+edit_line+"(.*)");
+		var edit_re = new RegExp('^'+edit_line+'(.*)');
 		var edit_words = edit_line.split(/\s+/);
-		//top matches have an exact match with the token
+		var last_word_ind = edit_words.length-1;
+		//top matches have an exact match (at the start) with the token
 		var top_match = [];
 		// next matches don't
 		var next_match = [];
@@ -1284,14 +1281,35 @@ function TSXHTR( tsxTranscript ){
 			var sug_line = sug.lines[i].replace(/^.*<s>\s*(.*)<\/s>.*$/, '$1');
 			var sug_words = sug_line.split(/\s+/);
 			if(edit_re.test(sug_line)){
-				console.log("Match", sug_line);
-				top_match.push(RegExp.$1);
+				//console.log("Match", sug_line);
+				var match_str = RegExp.$1;
+				//only return num_words words
+				if(sug.num_words != undefined)
+					match_str = match_str.split(/\s+/).slice(0,sug.num_words).join(" ");
+								
+				top_match.push(match_str);
 			}else{
-				var remains = sug_words.slice(edit_words.length-1).join(" ");
-				next_match.push(remains);
+				//imperfect way of getting what we think the remainder of the suggestion is
+				var remains = sug_words.slice(last_word_ind).join(" ");
+				var last_word_re = new RegExp('^'+edit_words[last_word_ind]+'(.*)');
+				if(last_word_re.test(remains)){
+					match_str = RegExp.$1;
+					if(sug.num_words != undefined)	
+						match_str = match_str.split(/\s+/).slice(0,sug.num_words).join(" ");
+
+					next_match.push(match_str);
+				}
 			}
 		}
-		var matches = $.unique(top_match.concat(next_match));
+		//turns out $.unqiue is only ment for DOM elements...!
+		var matches = self.removeDupes(top_match.concat(next_match));
+//		console.log("matches", matches);
+		
+		if(matches.length == 0) {
+			tsxTranscript.lock.blockUI("Sorry, no suggestions");
+			setTimeout(tsxTranscript.lock.unblockUI, 1000);
+			return false;
+		}
   		var inner = {from: cm.getCursor(), to: cm.getCursor(), list: matches};
   		return inner;
 	}
@@ -1299,214 +1317,23 @@ function TSXHTR( tsxTranscript ){
 	this.handle_suggestions = function(data, args){
 		var sug_lines = data.split(/\n/);
 		var edit_line = self.get_line();
-		CodeMirror.showHint(tsxTranscript.cm, self.suggestions, {lines: sug_lines});
+		CodeMirror.showHint(tsxTranscript.cm, self.suggestions, {lines: sug_lines, num_words: args.num_words});
 	}
-
+	//poss a utility
+	this.removeDupes = function(arr) {
+		var result = [], map = {}, item;
+		for (var i = 0; i < arr.length; i++) {
+			item = arr[i];
+			if (!map[item]) {
+				result.push(item);
+				map[item] = true;
+			}
+		}
+		return(result);
+	}
+	
 	self.init();
 }
-/*
-function TSXHTR( tsxTranscript ){
-
-	var self = this;
-	this.name ="TSXHTR";
-
-	this.init = function(){
-		self.wordgraph_url = "/HTR_proxy.php?ref=JB."+self.ref;
-		self.load_json(self.wordgraph_url, self.handle_wordgraphs);
-
-		require("jquery.editable.itp");  
-		// This lib may help to prevent unwanted asynchronous events.
-		require("jquery.blockUI");
-
-		// Check HTR engine availability.
-		self.getAvailableSocket();		
-	}
-	this.handle_wordgraphs = function(data){
-		console.log(data);
-		//TODO here we check the available wordgraph refs against what is in the transcript
-		self.wordgraph_data = data;
-		console.log(data);
-		console.log(tsxTranscript.polys);
-		data.iids = $.unique(data.iids);
-		var htr_available = false;
-		tsxTranscript.cm.eachLine(function(cm_line){			
-			var ref_re = new RegExp(cm_line.ref+'$');
-			var ids = $.grep( data.iids, function( wg, i ) {
-				return ref_re.test(wg);
-			});
-		
-			if(ids.length) tsxTranscript.cm.setGutterMarker(cm_line,"tsx-htr-available",self.makeMarker());	
-		});
-		//fix gutter marker snafu
-		$(".CodeMirror-gutter-wrapper").css({width: "39px", left: "-39px" });
-
-	}
-	
-	this.makeMarker = function() {
-		console.log("making marker");
-		var marker = document.createElement("div");
-		marker.style.color = "#282";
-		marker.innerHTML = "●";
-		return marker;
-	}
-	
-	// getAvailableSocket() gets a valid port to usse for HTR socket
-	this.getAvailableSocket = function(){
-		var url = "http://casmacat.prhlt.upv.es/servers/status/bentham-batches?callback=?";
-		self.load_json(url, self.set_port);
-	}
-	this.set_port = function(portNums){
-		var howMany = Object.keys(portNums).length,
-		nTested = 0;
-		for (var n in portNums) {
-			if (portNums[n] === true) {
-				self.htrSocketPort = n;
-				break;
-			}
-			nTested++;
-		}
-		if (nTested == howMany) console.log("No HTR engines are available!");
-		console.log("Using engine at port", self.htrSocketPort);
-		self.connect_to_HTR();
-	}
-	
-	this.get_full_line_ref = function(){
-		return tsxTranscript.polys[tsxTranscript.cm.getCursor().line].full_line_ref;
-	}
-	// We will farm use hidden elements in page htr_image, htr_target etc 
-	// to interact with HTR. suggestion fcuntions will pick up data from 
-	// htr_target
-	this.connect_to_HTR = function(){
-			console.log("connecting to HTR");
-			$("#htr_stuff").html('<p class="source-text"></p>');
-			self.lock = new tsxTranscript.Blocker('#tsx-transcript-editor');
-			var htr_server= "http://casmacat.prhlt.upv.es";
-			$("#htr_target").editableItp({
-					sourceSelector: ".source-text",
-					itpServerUrl:   htr_server + "@" + self.htrSocketPort + "/casmacat"
-
-				})
-			// Now we can attach some event listeners, this one is mandatory.
-			.on('ready', self.isReady)
-			// We can attach different callbacks to the same event, of course.
-			.on('ready', function(ev, msg) {
-				self.lock.unblockUI();
-			})
-			.on('unready', function(ev, msg) {
-				console.log("unready");
-				self.lock.blockUI(msg);
-			});
-	}
-	this.do_HTR = function(full_line_ref, callback){
-		if(full_line_ref == undefined){
-			full_line_ref = self.get_full_line_ref();
-		}
-		
-		//Let's pretend when no connection (on train or abroad) we will send back a pretend token.target response
-		if(self.HTR_is_ready){
-			console.log("sending ref: "+full_line_ref);
-//			$("#htr_target").editableItp('endSession');	
-			$("#htr_target").data("itp").$source.text(full_line_ref);
-//			$("#htr_target").empty();
-			$("#htr_target").text(tsxTranscript.cm.getLine(tsxTranscript.cm.getCursor().line));			
-			$("#htr_target").data("itp").$target = $("#htr_target");
-			self.htr_callback = callback;
-			var transcription = $("#htr_target").text();
-			console.log("decoding with some text in place: "+ transcription);
-			if(transcription === ""){
-				$("#htr_target").editableItp('decode');
-			}else{
-				//we assume that whatever we have is valid...
-				$("#htr_target").editableItp('setPrefix',3);
-				$("#htr_target").editableItp('decode');
-			}
-		}else{
-			console.log("HTR not ready yet");
-		}
-	}
-	
-	this.isReady = function(){
-			console.log("READY");
-		 // At this point, the server has initialized the wordgraph 
-	    // the connection has been successfully stablished.
-	    self.HTR_is_ready = true;
-	    // Let's change some server-side settings.
-	    var settings = $("#htr_target").editableItp('getConfig');
-	    // For instance, the editing mode will be Interactive Text Prediction.
-	    settings.mode = "ITP";
-	    $("#htr_target").editableItp('updateConfig', settings);
-	    
-	    // Now attach a number of callbacks (more to come).
-	    $("#htr_target").on('decode', function(ev, data, err) {
-	      if (err.length > 0) console.error("Error!", err);
-	      // The server has decoded a given source image ID.
-	      console.log(ev.type, data);
-		  console.log("STARTING INTERACTIVE SESSION");
-	      $("#htr_target").editableItp('startSession');
-	    })
-	    .on('startSessionResult', function(data, err) {
-	      if (err.length > 0) console.error("Error!", err);
-	      // The server has initiated an interactive session.
-	      console.log(ev.type, data);
-	    })
-	    .on('suffixchange', function(ev, data, err) {
-	      if (err.length > 0) console.error("Error!", err);
-	      // The user has validated a prefix, 
-	      // so the server predicts a suitable continuation of it.
-	      console.log(ev.type, data);
-	    })
-	    .on('confidences', function(ev, data, err) {
-	      if (err.length > 0) console.error("Error!", err);
-	      // Confidence measures information is received.
-	      console.log(ev.type, data);
-	    })
-	    .on('tokens', function(ev, data, err) {
-	      if (err.length > 0) console.error("Error!", err);
-	      // Tokenization information is received.
-	      console.log(ev.type, data);
-		  self.htr_callback(data);			
-	    })
-	    .on('alignments', function(ev, data, err) {
-	      if (err.length > 0) console.error("Error!", err);
-	      // Word-level alignment information is received.
-	      console.log(ev.type, data);
-	    })    
-	    .on('serverconfig', function(ev, data, err) {
-	      if (err.length > 0) console.error("Error!", err);
-	      // Server-side configuration information is received.
-	      console.log(ev.type, data);
-	    })
-	    .on('validate', function(ev, data, err) {
-	      if (err.length > 0) console.error("Error!", err);
-	      // Transcription is validated. A new source-target pair has been learned.
-	      console.log(ev.type, data);
-	    })
-	    .on('validatedcontributions', function(ev, data, err) {
-	      // Requests a list of the previously validated user contributions.
-	      console.log(ev.type, data);
-	    }).on('getTokensResult', function(ev, data, err) {
-	      // Requests a list of the previously validated user contributions.
-	      console.log(ev.type, data);
-	    })
-
-	//    // TODO: Extra functionalities, for e.g. logging
-	//    .on('mousewheelup', function(ev, pos, stack) {
-	//    })
-	//    .on('mousewheeldown', function(ev, pos, stack) {
-	//    })
-	//    .on('mousewheelinvalidate', function(ev) {
-	//    })
-	//    .on('mementoundo', function(ev, pos, stack) {
-	//    })
-	//    .on('mementoredo', function(ev, pos, stack) {
-	//    })
-	//    .on('mementoinvalidate', function(ev) {
-	//    })
-	}
-
-	self.init();
-}
-*/
 function TSXController (config){
 
 	this.init = function(config){
@@ -1537,40 +1364,29 @@ function TSXController (config){
 			var tsxFiles = new TSXFiles();
 		}
 
-//		tsxTranscript = new TSXTranscript();
-
-		
-/*		TSXViewer.prototype = new TSXImage();
-		TSXViewer.constructor = TSXViewer;
-
-		tsxviewer = new TSXViewer();
-		tsxviewer.init();
-	*/	
-//		tsxPage = new (true, config);
-	//	tsxImage = new TSXImage(true);
-		//tsxViewer = new TSXViewer(true);
-		//tsxTranscript = new TSXTranscript(true);
 	}
 	this.init(config);
 }
-	String.prototype.capitalise = function() {
-		var str = this.toLowerCase();
-		return str.charAt(0).toUpperCase() + str.slice(1);
+
+/*Utility*/
+String.prototype.capitalise = function() {
+	var str = this.toLowerCase();
+	return str.charAt(0).toUpperCase() + str.slice(1);
+}
+$.fn.serializeObject = function()
+{
+    var o = {};
+    var a = this.serializeArray();
+    $.each(a, function() {
+	if (o[this.name] !== undefined) {
+	    if (!o[this.name].push) {
+		o[this.name] = [o[this.name]];
+	    }
+	    o[this.name].push(this.value || '');
+	} else {
+	    o[this.name] = this.value || '';
 	}
-	$.fn.serializeObject = function()
-	{
-	    var o = {};
-	    var a = this.serializeArray();
-	    $.each(a, function() {
-		if (o[this.name] !== undefined) {
-		    if (!o[this.name].push) {
-			o[this.name] = [o[this.name]];
-		    }
-		    o[this.name].push(this.value || '');
-		} else {
-		    o[this.name] = this.value || '';
-		}
-	    });
-	    return o;
-	};
+    });
+    return o;
+};
 
