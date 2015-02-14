@@ -6,13 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TSX</title>
 
-
     <link href="./css/bootstrap.min.css" rel="stylesheet">
 	<link href="./css/bootstrap-dialog.css" rel="stylesheet">
 	<link rel="stylesheet" href="./css/codemirror.css"/>	
-	<link rel="stylesheet" href="./js/addons/merge/merge.css"/>
+	<link rel="stylesheet" href="./css/merge.css"/>
     <link href="./css/tsx.css" rel="stylesheet">
-	
+
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]>

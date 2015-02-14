@@ -6,6 +6,7 @@ body { padding 0; margin: 0; }
 
 #tsx-file-panel { overflow: auto;}
 #tsx-thumb-panel { overflow: auto;}
+.tsx-thumbbox .caption {text-align: center;}
 
 /*tei CodeMirror css */
 

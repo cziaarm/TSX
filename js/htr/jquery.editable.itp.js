@@ -216,9 +216,9 @@
     },
 
     setPrefix: function(caretPos, numResults) {
-	console.log("****",caretPos, numResults);
       if (typeof(numResults) === 'undefined') numResults = 1;
       var data = $(this).data(namespace);
+
       data.itpServer.setPrefix({
         source: data.$source.text(),
         target:   data.$target.text(),

@@ -70,7 +70,7 @@ function TSX(config){
 		}).
 		fail(function(jqxhr,textStatus,error){
 				var err = textStatus + ", " + error;
-				console.log( "**RequestRequest Failed: " + err );
+				console.log( "**Request to "+url+" Failed: " + err );
 				callback(false);
 		}).
 		always(function(){
@@ -132,7 +132,7 @@ function TSXFiles( ){
 				icon: "glyphicon glyphicon-folder-close", 
 				li_attr : {
 							"data-docid": data[i].docId, 
-							"data-node-info": "Some information about "+data[i].docId
+							"data-node-info": "Some information about "+data[i].docId,
 						},
 				children: true,
 			};
@@ -157,9 +157,12 @@ function TSXFiles( ){
 					if(obj.id === '#')
 						cb.call(this,self.files);
 					else{
-						var fulldoc_url = self.data_server+"/"+obj.li_attr["data-docid"]+"/fulldoc.json";
+//						var fulldoc_url = self.data_server+"/"+obj.li_attr["data-docid"]+"/"+obj.li_attr["data-docid"]+".xml";
+						var fulldoc_url = self.data_server+"/"+obj.li_attr["data-docid"]+"/fulldoc"; //gets json 
+						//var fulldoc_url = self.data_server+"/"+obj.li_attr["data-docid"]+"/fulldoc.json";
 						self.cb = cb;
 						self.this_node = obj;
+						//self.load_xml(fulldoc_url, self.handle_fulldoc);
 						self.load_json(fulldoc_url, self.handle_fulldoc);
 					}
 				}
@@ -205,50 +208,44 @@ function TSXFiles( ){
 			return false;
 		}
 		
-		var p = data.pageList.pages
-		//mung out the boxes
-		var boxes = {};
-		var boxes_keys = [];
-		for(var i in p){
-			
-			//if(p[i].imgFileName != undefined) 
-			if(p[i].imgFileName == undefined){
-				var page_ref = p[i].key;//continue; //at the moment this is our only useful ref
-				//no boxes...
-				var box = 999;
-			}else{
-				var box = p[i].imgFileName.replace(/^(\d{3})_.*$/,'$1');
-				var page_ref = p[i].imgFileName.replace(/^(.*)\.jpg$/,'$1');
-			}
-			
-			p[i].box = box;
-			p[i].page_ref = page_ref;
-			if(boxes[box] == undefined) boxes[box] = [];
-			boxes[box].push(page_ref);
-			boxes_keys.push(box);
-			self.pages[page_ref] = p[i];
-		}
-		if(self.pages.length == 0 ){
-			$("#" + self.this_node.id).removeClass("jstree-loading").addClass("jstree-leaf");
-			return false;
-		}
-		boxes_keys = $.unique(boxes_keys);
-		boxes_keys.sort();
+		//in absence of boxes we will make some according to a random box size param...
+		var box_size = data.md.nrOfPages;
+		if(data.md.nrOfPages > 20)
+			box_size = data.md.nrOfPages/10;
 		var for_tree = [];
-		for(var i in boxes_keys){
-			var pages = boxes[boxes_keys[i]];
-				var node = {text: boxes_keys[i], icon: "glyphicon glyphicon-folder-close", li_attr: {
+		var i = 0;
+		//eek json available again
+		var p = data.pageList.pages
+		var first = p[0].pageNr; 
+		
+		var pages = [];
+		for(var ind in p){
+			var hum_ind = parseInt(ind)+1;
+			var page_ref = p[ind].key;
+			p[ind].page_ref = page_ref;// daft I know...
+		
+			self.pages[page_ref] = p[ind];
+			pages.push(page_ref);
+			if(hum_ind%box_size == 0 || hum_ind == p.length){
+				var last = p[ind].pageNr;
+				var box = first+" - "+last;
+				if(first == last) box = first;
+				var node = {text: box, icon: "glyphicon glyphicon-folder-close", li_attr: {
 					"data-pages" : pages, 
-					"data-box": boxes_keys[i], 
-					"data-docid" : self.pages[pages[0]].docId, //any page in the box will tell us the docId
+					//"data-box": boxes_keys[i], 
+//					"data-docid" : $("docid", self.pages[pages[0]]).docId, //any page in the box will tell us the docId
 					"class" : "tsx-page" 
-				} 
-			};
-			if(self.pages[pages[0]].docId == self.ref && boxes_keys[i] == self.sub_ref) node.state = {selected: true}; //selects but doesn't fire event :(
-			for_tree.push(node);
+					}
+				};
+				for_tree.push(node);
+				if(p[hum_ind] != undefined){
+					var first = p[hum_ind].pageNr; 
+				}
+				pages = [];
+			}
 		}
-		self.cb.call(this,for_tree);
 
+		self.cb.call(this,for_tree);
 		
 	}
 	this.load_thumbnails = function(pages){
@@ -256,15 +253,26 @@ function TSXFiles( ){
 		$("#tsx-thumb-panel > .container-fluid > .row").html("");
 	
 		for(var i in pages){
-//			console.log(self.pages[pages[i]]);
-			var thumb = '<div class="col-sm-6 col-md-3">'+
-				'<a href="/transcribe#'+self.pages[pages[i]].page_ref+'" class="thumbnail">'+
-				'<img src="'+self.pages[pages[i]].thumbUrl+'" alt="Generic placeholder thumbnail">'+
+//			console.log(self.pages[pages[i]]);		
+			var thumb = '<div class="tsx-thumbbox col-sm-6 col-md-3">'+
+				'<a href="/transcribe#'+self.pages[pages[i]].docId+'/'+self.pages[pages[i]].pageNr+'" class="thumbnail">'+
+					'<img src="'+self.pages[pages[i]].thumbUrl+'" alt="Tumbnail for '+self.pages[pages[i]].thumbUrl+'"/>'+
+					' <div class="caption">Page '+self.pages[pages[i]].pageNr+' ('+self.humanise(self.pages[pages[i]].tsList.transcripts[0].status)+')</div>'+
 				'</a>'+
-				' <div class="caption"><p>'+self.pages[pages[i]].page_ref+' ('+self.pages[pages[i]].pageNr+')</p></div>'+
 			'</div>';
 			$("#tsx-thumb-panel > .container-fluid > .row").append(thumb);
+			
+
 		}
+	}
+	this.humanise = function(str){
+		str = str.replace(/_/g," ");
+		console.log("here");
+		return str.capitalise();
+	}
+	String.prototype.capitalise = function() {
+		var str = this.toLowerCase();
+		return str.charAt(0).toUpperCase() + str.slice(1);
 	}
 	self.init();
 }
@@ -356,7 +364,7 @@ function TSXDocument( ){
 
 	this.init = function(){
 
-		self.img_path = self.data_store+"/"+self.ref+".jpg";	
+		self.img_path = self.data_store+"/"+self.sub_ref+"/"+self.sub_ref+".jpg";	
 		self.load_image();
 	}
 	
@@ -560,8 +568,9 @@ function TSXTranscript( tsxDoc ){
 	this.name ="TSXTranscript";
 
 	this.init = function(){
-		self.xml_path = self.data_store+"/"+self.ref+".xml";
-		console.log("We should load the transcript from "+self.data_store);
+		
+		self.xml_path = self.data_store+"/"+self.sub_ref+"/"+self.sub_ref+".xml";
+		console.log("We should load the transcript from "+self.xml_path);
 		self.load_xml(self.xml_path, self.handle_transcript);
 		self.cm = CodeMirror(document.getElementById("tsx-transcript-editor"),{lineNumbers: true, gutters: ["CodeMirror-linenumbers", "tsx-htr-available"]});
 		self.cm.setSize("auto", self.edit_height);		
@@ -579,20 +588,29 @@ function TSXTranscript( tsxDoc ){
 		self.text = "";
 		self.polys = {};
 		$("TextLine", data).each(function(i){
+
 			var poly = self.draw_polygon(this,i);
 			//TODO fix this for IE
 			var raw_text_line = self.removeNSAttr($(" > TextEquiv Unicode",this).html());
+			//for cases where the text is *only* in Word tags :|
+			if(raw_text_line === "" && $(" > Word",this).length > 0){
+				$(" > Word",this).each(function(){
+					raw_text_line += self.removeNSAttr($(" > TextEquiv Unicode",this).html()) +" ";
+				});
+				raw_text_line = raw_text_line.replace(/\s+$/, "");
+			}
+			//line ref
 			var line_ref = self.removeNSAttr($(this).attr("id"));
-			
-			self.text += raw_text_line+"\n";
+			//make text block for codemirror
+			self.text += raw_text_line;
+			//add new line if not last line
+			if((i+1)!=$("TextLine", data).length) self.text +="\n";
+			//store this stuff in the poly object
 			poly.text = raw_text_line;
 			poly.ref = line_ref;
 			self.polys[i]=poly;
 		});
 		
-		//no newline at end of text
-		self.text = self.text.replace(/\n$/m,"");
-		//put text into codemirror
 		self.cm.setValue(self.text);
 		self.cm.markClean();
 		
@@ -627,7 +645,6 @@ function TSXTranscript( tsxDoc ){
 			//if(polys[line].rec.y.min > tsxDoc.raph.height/* - some adjustment... */){
 			//	self.go_to_line(polys[line], line, true);
 			//}else{
-				console.log("cursorActivity detected - line: "+line);
 				self.go_to_line(self.polys[line], line);
 			//}
 		});
@@ -715,7 +732,8 @@ function TSXTranscript( tsxDoc ){
 	}
 	this.suggest_line = function(data){
 		var this_line = self.cm.getCursor().line;
-		self.cm.replaceRange(data.target+"\n", {line: this_line, ch: 0}, {line: this_line, ch: null});
+		self.cm.replaceRange(data.target, {line: this_line, ch: 0}, {line: this_line, ch: null});
+		self.cm.setCursor({line: (this_line+1), ch: 0});
 	}
 	this.suggest_word = function(data){
 		console.log("suggest word", data.target);
@@ -733,7 +751,7 @@ function TSXTranscript( tsxDoc ){
 		}
 		ed_words = ed_words.filter(Boolean); //take out empty strings
 		
-		console.log(ed_words.length, ed_words);
+//		console.log(ed_words.length, ed_words);
 		//next word at end of line...
 		var w = data.targetSegmentation[ed_words.length];
 		
@@ -742,27 +760,27 @@ function TSXTranscript( tsxDoc ){
 		
 		//var w = data.targetSegmentation[];
 		
-		console.log(w);
+//		console.log(w);
 		var slice_end = w[1];
 		var range_end = w[1];
 		var ed_line_end = (ed_line.length + w[1] - w[0]+1);
 		if((data.target[w[1]] != undefined && data.target[w[1]].match(/\s/)) || data.target.length == ed_line_end){
 			slice_end++;
-			console.log("last char of sug is a space");
+//			console.log("last char of sug is a space");
 		}else{
-			console.log("last char of sug is NOT a space");
+//			console.log("last char of sug is NOT a space");
 			range_end--;
 		}
-		console.log(w[0], slice_end);
+//		console.log(w[0], slice_end);
 		var sug_word = data.target.slice(w[0],slice_end);
-		console.log("*"+sug_word+"*");
-		console.log("{line: "+this_line+", ch: "+w[0]+"}, {line: "+this_line+", ch: "+range_end+"}");
+//		console.log("*"+sug_word+"*");
+//		console.log("{line: "+this_line+", ch: "+w[0]+"}, {line: "+this_line+", ch: "+range_end+"}");
 		
 		self.cm.replaceRange(sug_word, {line: this_line, ch: w[0]}, {line: this_line, ch: range_end});
 		//if we have reached the end of the line go to next line...
-		console.log(ed_line_end+" >= "+data.target.length);
+//		console.log(ed_line_end+" >= "+data.target.length);
 		if(ed_line_end >= data.target.length){
-			console.log("moving cursor");
+//			console.log("moving cursor");
 			self.cm.setCursor({line: (this_line+1), ch: 0});
 		}
 	}
@@ -1054,9 +1072,9 @@ function TSXHTR( tsxTranscript ){
 		*/
 		if(self.HTR_is_ready){
 			console.log("sending ref: "+full_line_ref);
-			$("#htr_target").editableItp('endSession');	
+//			$("#htr_target").editableItp('endSession');	
 			$("#htr_target").data("itp").$source.text(full_line_ref);
-			$("#htr_target").empty();
+//			$("#htr_target").empty();
 			$("#htr_target").text(tsxTranscript.cm.getLine(tsxTranscript.cm.getCursor().line));			
 			$("#htr_target").data("itp").$target = $("#htr_target");
 			self.htr_callback = callback;
@@ -1066,7 +1084,7 @@ function TSXHTR( tsxTranscript ){
 				$("#htr_target").editableItp('decode');
 			}else{
 				//we assume that whatever we have is valid...
-				$("#htr_target").editableItp('validate');
+				$("#htr_target").editableItp('setPrefix',3);
 				$("#htr_target").editableItp('decode');
 			}
 		}else{
