@@ -7,10 +7,10 @@
     <title>TSX</title>
 
     <!-- Bootstrap -->
-    <link href="/css/bootstrap.min.css" rel="stylesheet">
-	<link href="/css/bootstrap-dialog.css" rel="stylesheet">
-	<link rel="stylesheet" href="/css/style.min.css"/>
-    <link href="/css/tsx.css" rel="stylesheet">
+    <link href="./css/bootstrap.min.css" rel="stylesheet">
+	<link href="./css/bootstrap-dialog.css" rel="stylesheet">
+	<link rel="stylesheet" href="./css/style.min.css"/>
+    <link href="./css/tsx.css" rel="stylesheet">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
@@ -19,13 +19,13 @@
       <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script src="/js/jquery.min.js"></script>
+    <script src="./js/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="/js/bootstrap.min.js"></script>
-	<script src="/js/bootstrap-dialog.js"></script> 
-    <script src="/js/jstree.min.js"></script>
+    <script src="./js/bootstrap.min.js"></script>
+	<script src="./js/bootstrap-dialog.js"></script> 
+    <script src="./js/jstree.min.js"></script>
 	
-    <script src="/js/tsx.js"></script> 
+    <script src="./js/tsx.js"></script> 
 
 
   </head>
@@ -37,16 +37,16 @@
       <div class="container-fluid">
 		<div class="navbar-header">
       	  <a class="navbar-brand" href="http://transcriptorium.eu">
-           <img alt="Brand" src="/images/tS_logo.jpg" width="30"  />
+           <img alt="Brand" src="./images/tS_logo.jpg" width="30"  />
          </a>
 		 <a class="navbar-brand" href="http://ec.europa.eu/research/index.cfm">
-           <img alt="Brand" src="/images/flag_yellow_high.png"  />
+           <img alt="Brand" src="./images/flag_yellow_high.png"  />
          </a>
         </div>
         <ul class="nav navbar-nav">
-			<li><a href="/">Home</a></li>
-			<li class="active"><a href="/desk">Desk</a></li>
-			<li><a href="/userarea">User area</a></li>
+			<li><a href="/TSX">Home</a></li>
+			<li class="active"><a href="./desk">Desk</a></li>
+			<li><a href="./userarea">User area</a></li>
 		</ul>
 
 	   <button type="button" class="btn btn-default navbar-btn pull-right">Sign in</button>
