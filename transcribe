@@ -39,8 +39,6 @@
 	
     <script src="/js/tsx.js"></script> 
 
-
-
   </head>
 
   <body>
@@ -61,8 +59,7 @@
 			<li class="active"><a href="./desk">Desk</a></li>
 			<li><a href="./userarea">User area</a></li>
 		</ul>
-
-		<button type="button" class="btn btn-default navbar-btn pull-right">Sign in</button>
+ 		<button type="button" class="btn btn-default navbar-btn pull-right" data-toggle="modal" data-target="#loginModal">Sign in</button>
 		<button type="button" class="btn btn-default navbar-btn pull-right">Create account</button>
       </div>
     </nav>
@@ -146,6 +143,46 @@
    </div>
 </div>
 
+<div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title">Login</h4>
+            </div>
+
+            <div class="modal-body">
+                <!-- The form is placed inside the body of modal -->
+                <form id="loginForm" method="post" class="form-horizontal">
+                    <div class="form-group">
+                        <label class="col-xs-3 control-label">Username</label>
+                        <div class="col-xs-5">
+                            <input type="text" class="form-control" name="username" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-xs-3 control-label">Password</label>
+                        <div class="col-xs-5">
+                            <input type="password" class="form-control" name="password" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-xs-5 col-xs-offset-3">
+                            <button type="submit" class="btn btn-default">Login</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+</script>
+
+
 <div id="htr_stuff"></div>
 <div id="htr_image"></div>
 <div id="htr_target"></div>
@@ -155,7 +192,7 @@
 	if(window.location.host.match(/devorkin/)){
 		var data_server = "/local_data";
 	}else{
-		var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerBentham/rest/";
+		var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerTesting/rest/";
 	}
 	
 	tsxConroller = new TSXController({data_server: data_server, view_box: "#tsx-image", image_panel: "#tsx-image-panel", edit_panel: "#tsx-edit-panel"});
