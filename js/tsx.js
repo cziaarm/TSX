@@ -88,11 +88,51 @@ function TSXUser( ){
 		console.log(self.name+" has been initialised");
 		console.log(self.data_server);
 		self.load_xml(self.data_server+"/users_session.xml", self.handle_user);
+		self.init_validation();
+	
+      
+/*		$("#loginForm").on("submit", function(){
+			self.validate();
+			return false;
+		});
+*/
 	}
 	this.handle_user = function(data){
 		console.log(data);
 	}
-	this.validate = function() {
+	this.init_validation = function() {
+		console.log("VALIDATIING");
+		$('#loginForm').validate({
+        rules: {
+            username: {
+                minlength: 3,
+                maxlength: 15,
+                required: true
+            },
+            password: {
+                minlength: 3,
+                maxlength: 15,
+                required: true
+            }
+        },
+        highlight: function(element) {
+            $(element).closest('.form-group').addClass('has-error');
+        },
+        unhighlight: function(element) {
+            $(element).closest('.form-group').removeClass('has-error');
+        },
+        errorElement: 'span',
+        errorClass: 'help-block',
+        errorPlacement: function(error, element) {
+            if(element.parent('.input-group').length) {
+                error.insertAfter(element.parent());
+            } else {
+                error.insertAfter(element);
+            }
+        }
+    });
+
+    
 	}
 	this.authenticate = function(){
 	}
@@ -1196,6 +1236,8 @@ function TSXController (config){
 		TSXHTR.prototype = new TSXPage();
 		TSXHTR.constructor = TSXHTR;
 		
+		var tsxUser = new TSXUser();
+
 		if(config.image_panel != undefined){
 			var tsxDoc = new TSXDocument();
 		}
