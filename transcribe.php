@@ -1,68 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>TSX</title>
-
-    <link href="./css/bootstrap.min.css" rel="stylesheet">
-	<link href="./css/bootstrap-dialog.css" rel="stylesheet">
-	<link rel="stylesheet" href="./css/codemirror.css"/>	
-	<link rel="stylesheet" href="./css/merge.css"/>
-    <link href="./css/tsx.css" rel="stylesheet">
-
-    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-    <!--[if lt IE 9]>
-      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
-      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
-    <![endif]-->
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script src="./js/jquery.min.js"></script>
-    <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="./js/bootstrap.min.js"></script>
-	<script src="./js/bootstrap-dialog.js"></script> 
-    <script src="./js/raphael-min.js"></script>
-    <script src="./js/jquery.mousewheel.min.js"></script> 
-	<!--<script type="text/javascript" src="./js/lib/htr/jquery.debounce.js"></script>-->
-
-
-	<script src="./js/codemirror.js"></script>
-	<script src="./js/diff_match_patch.js"></script>
-	<script src="./js/merge.js"></script>
-
-<!--	<script type="text/javascript" src="./js/jquery.xslt.js"></script> -->
-
-	<script type="text/javascript" src="./js/htr/require.custom.js"></script>
-
-	
-    <script src="/js/tsx.js"></script> 
-
-  </head>
-
+<?php require("./head.inc.php");?>
   <body>
-
-<!-- Fixed navbar -->
-    <nav class="navbar navbar-default" role="navigation">
-      <div class="container-fluid">
-        <div class="navbar-header">
-      	  <a class="navbar-brand" href="http://transcriptorium.eu">
-           <img alt="Brand" src="/images/tS_logo.jpg" width="30"  />
-         </a>
-		 <a class="navbar-brand" href="http://ec.europa.eu/research/index.cfm">
-           <img alt="Brand" src="/images/flag_yellow_high.png"  />
-         </a>
-        </div>
-		<ul class="nav navbar-nav">
-			<li><a href="/TSX">Home</a></li>
-			<li class="active"><a href="./desk">Desk</a></li>
-			<li><a href="./userarea">User area</a></li>
-		</ul>
- 		<button type="button" class="btn btn-default navbar-btn pull-right" data-toggle="modal" data-target="#loginModal">Sign in</button>
-		<button type="button" class="btn btn-default navbar-btn pull-right">Create account</button>
-      </div>
-    </nav>
+<?php 
+$menu["desk"] = $active_menu;
+require("./header.inc.php");?>
 
 <!-- Bootstrap 3 panel list. -->
 <div class="container-fluid">
@@ -143,45 +85,7 @@
    </div>
 </div>
 
-<div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                <h4 class="modal-title">Login</h4>
-            </div>
-
-            <div class="modal-body">
-                <!-- The form is placed inside the body of modal -->
-                <form id="loginForm" method="post" class="form-horizontal">
-                    <div class="form-group">
-                        <label class="col-xs-3 control-label">Username</label>
-                        <div class="col-xs-5">
-                            <input type="text" class="form-control" name="username" />
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="col-xs-3 control-label">Password</label>
-                        <div class="col-xs-5">
-                            <input type="password" class="form-control" name="password" />
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <div class="col-xs-5 col-xs-offset-3">
-                            <button type="submit" class="btn btn-default">Login</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-</script>
-
+<?php require("./login.inc.php");?>
 
 <div id="htr_stuff"></div>
 <div id="htr_image"></div>
