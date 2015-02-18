@@ -38,40 +38,43 @@ function TSX(config){
 			self[opt] = config[opt];
 		}
 	};
-	this.load_xml = function(url, callback){
-		self.rest(url, null, callback, "xml", "GET");
+	this.load_xml = function(url, callback, args){
+		self.rest(url, null, callback, "xml", "GET", args);
 	}
-	this.load_json = function(url, callback){
-		self.rest(url, null, callback, "json", "GET");
+	this.load_json = function(url, callback, args){
+		self.rest(url, null, callback, "json", "GET", args);
 	}
-	this.save_xml = function(url, data, callback){
-		self.rest(url, data, callback, "xml", "POST");
+	this.save_xml = function(url, data, callback, args){
+		self.rest(url, data, callback, "xml", "POST", args);
 	}
-	this.save_json = function(url, data, callback){
-		self.rest(url, data, callback, "json", "POST");
+	this.save_json = function(url, data, callback, args){
+		self.rest(url, data, callback, "json", "POST", args);
 	}
 
-	this.rest = function(url, data, callback, dataType, type){
+	this.rest = function(url, data, callback, dataType, type, args){
 	
 		var params = {crossDomain: true, xhrFields: {withCredentials: true}};
 		if(type != undefined) //default to GET
 			params.type = type;
-		if(dataType != undefined){ //let it guess if not set
-			params.dataType = dataType;
-			switch(dataType){
-				case "xml" : params.contentType = "text/xml; charset=utf-8"; break;
-				case "json" : params.contentType = "application/json; charset=utf-8"; break;
-			}
+		if(dataType != undefined){ //let it guess if not set (Can't send contentType as the allow headers doesn't include contentType)
+//			params.dataType = dataType;
+//			switch(dataType){
+//				case "xml" : params.contentType = "text/xml; charset=utf-8"; break;
+//				case "json" : params.contentType = "application/json; charset=utf-8"; break;
+//			}
 		}
+//		params.data = data;
+//		if($.cookie("TSX_session") != undefined)
+//			params.data.JSESSIONID = $.cookie("TSX_session");
 		$.ajax(url, params ).
 		done(function(data, textStatus, jqxhr){
-			console.log("rest is done");
-			callback(data);
+			//console.log("rest is done");
+			callback(data, args);
 		}).
 		fail(function(jqxhr,textStatus,error){
 				var err = textStatus + ", " + error;
 				console.log( "**Request to "+url+" Failed: " + err );
-				callback(false);
+				callback(false, args);
 		}).
 		always(function(){
 //			$("#connection_message").remove();
@@ -85,56 +88,191 @@ function TSXUser( ){
 	this.name ="TSXUser";
 
 	this.init = function() {
+	//self.load_xml(self.data_server+"/users_session.xml", self.handle_user);
 		console.log(self.name+" has been initialised");
-		console.log(self.data_server);
-		self.load_xml(self.data_server+"/users_session.xml", self.handle_user);
-		self.init_validation();
+		self.update_login_state();
+		self.init_signin();
+		self.init_signup();
+		self.init_signout();
+	}
+	this.update_login_state = function(){
+		if($.cookie("TSX_session") != undefined){
+			console.log($.cookie("TSX_session"));
+			$("#tsx-not-logged-in").hide();
+			$("#tsx-logged-in").show();
+		}else{
+			$("#tsx-logged-in").hide();
+			$("#tsx-not-logged-in").show();
 	
-      
-/*		$("#loginForm").on("submit", function(){
-			self.validate();
-			return false;
-		});
-*/
+		}	
 	}
 	this.handle_user = function(data){
 		console.log(data);
 	}
-	this.init_validation = function() {
-		console.log("VALIDATIING");
+	this.init_signin = function() {
 		$('#loginForm').validate({
-        rules: {
-            username: {
-                minlength: 3,
-                maxlength: 15,
-                required: true
-            },
-            password: {
-                minlength: 3,
-                maxlength: 15,
-                required: true
-            }
-        },
-        highlight: function(element) {
-            $(element).closest('.form-group').addClass('has-error');
-        },
-        unhighlight: function(element) {
-            $(element).closest('.form-group').removeClass('has-error');
-        },
-        errorElement: 'span',
-        errorClass: 'help-block',
-        errorPlacement: function(error, element) {
-            if(element.parent('.input-group').length) {
-                error.insertAfter(element.parent());
-            } else {
-                error.insertAfter(element);
-            }
-        }
-    });
-
-    
+			rules: {
+				username: {
+				required: true
+			    },
+			    password: {
+				minlength: 5,
+				required: true
+			    }
+			},
+			highlight: function(element) {
+			    $(element).closest('.form-group').addClass('has-error');
+			},
+			unhighlight: function(element) {
+			    $(element).closest('.form-group').removeClass('has-error');
+			},
+			errorElement: 'span',
+			errorClass: 'help-block',
+			errorPlacement: function(error, element) {
+			    if(element.parent('.input-group').length) {
+				error.insertAfter(element.parent());
+			    } else {
+				error.insertAfter(element);
+			    }
+			}
+	    	}); 
+		$("#loginForm").on("submit", function(){
+			var params = $(this).serialize();
+			//TODO the real one is post
+			self.load_xml(self.data_server+"auth/login_debug?"+params, function(data){
+				if(data){
+					$('#loginModal').modal("hide");
+					$.cookie("TSX_session", $("trpUserLogin > sessionId",data).text());
+					$("body").trigger('cookieUpdate');
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_SUCCESS,
+						title: "Login successful",
+						message: "<p>Welcome back "+$("trpUserLogin > userName",data).text()+"</p>",
+						buttons: [{label: 'OK',
+                						action: function(dialogItself){
+                    							dialogItself.close();
+                						}
+            					}]
+					});
+				}else{
+					
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_WARNING,
+						title: "There was a problem",
+						message: "<p>TSX could not log you in.</p>",
+						buttons: [{label: 'OK',
+                						action: function(dialogItself){
+                    							dialogItself.close();
+                						}
+            					}]		
+					});
+				}
+				self.update_login_state();
+			});
+			return false;
+		});
 	}
-	this.authenticate = function(){
+	this.init_signup = function() {
+		
+		$('#createAccountForm').validate({
+       			rules: {
+		    		username: {
+				required: true
+			    },
+			    password: {
+				minlength: 5,
+				required: true
+			    },
+			    given: {
+				required: true
+			    },
+			    family: {
+				required: true
+			    },
+			    email: {
+				required: true,
+				email: true
+			    },
+			    affiliation: {
+				required: false,
+			    },
+			    gender: {
+				required: false,
+			    }
+
+			},
+			highlight: function(element) {
+			    $(element).closest('.form-group').addClass('has-error');
+			},
+			unhighlight: function(element) {
+			    $(element).closest('.form-group').removeClass('has-error');
+			},
+			errorElement: 'span',
+			errorClass: 'help-block',
+			errorPlacement: function(error, element) {
+			    if(element.parent('.input-group').length) {
+				error.insertAfter(element.parent());
+			    } else {
+				error.insertAfter(element);
+			    }
+			}
+	    	}); 
+		$("#createAccountForm").on("submit", function(){
+			var data = $(this).serializeArray();
+			var xml = self.make_user_XML(data);
+			//console.log("data_Store: "+self.data_server);
+			self.save_xml(self.data_server+"user/register",xml, function(data){
+				//console.log("here",data);
+				$('#createAccountModal').modal("hide");
+				if(data){
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_SUCCESS,
+						title: "Created user (probably not)",
+						message: "<p>TSX has saved your User data... maybe</p>"
+					});
+				}else{
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_WARNING,
+						title: "There was a problem",
+						message: "<p>TSX could not create an account for you.</p>"
+					});
+				}
+			});
+			return false;
+		});
+
+	}
+	this.make_user_XML = function(data){
+		var xml_str = "<trpUserLogin>\n";
+		$(data).each(function(){
+			xml_str += "	<" + this.name + ">" + this.value + "</" + this.name + ">\n";
+		});
+		xml_str += "</trpUserLogin>";
+		return xml_str;
+	}
+	this.init_signout = function() {
+		$("#tsx-sign-out").on("click", function(){
+			BootstrapDialog.show({
+					type: BootstrapDialog.TYPE_WARNING,
+					title: "Sign out of TSX",
+					message: "<p>Are you sure you would like to sign out of TSX.</p>",
+					buttons: [{label: 'OK',
+							action: function(dialogItself){
+								self.save_xml(self.data_server+"auth/logout", {},  function(data){
+									$.removeCookie("TSX_session");
+									dialogItself.close();
+									self.update_login_state();
+									$("body").trigger('cookieUpdate');
+								});
+							}
+						},
+						{label: 'Cancel',
+							action: function(dialogItself){
+								dialogItself.close();
+							}
+					}]
+				});
+		});
 	}
 	
 	self.init();
@@ -149,165 +287,150 @@ function TSXFiles( ){
 		console.log(self.data_server);
 		//NB this will be reset everytime a new "doc" is opened in the tree!
 		self.pages = {};
-
-		self.load_json(self.data_server+"/docs_list.json", self.handle_files);
+		self.update_state();
+		$("body").on('cookieUpdate', function(){ //check again after (homemade) event
+			console.log("CookieUpdated!!!");
+			self.update_state();
+		});
 	}
-	this.handle_files = function(data){
+	this.update_state = function(){
 
-		self.files = {text: "Jeremy Bentham", 
-						icon: "glyphicon glyphicon-folder-close", 
-						li_attr: {
-							"data-node-info": "The works and correspondence of Jeremy Bentham (1748-1832), the influential jurist, philosopher, and "+
-							"social scientist, whom A.J.P. Taylor described as 'the most formidable reasoner who ever applied his gifts to the "+
-							"practical questions of administration and politics'."
-						},
-						children : []};
-		if(self.ref != undefined) self.files.state= {opened : true};
+		if($.cookie("TSX_session") != undefined)
+			self.load_json(self.data_server+"/collections/list", self.handle_collections);
+		else{
+			$("#tsx-file-panel").html("<p>Please sign in to select a collection</p>");
+			self.unload_thumbnails();
+		}
 
-		//self.files =[];
+	
+	}
+	this.handle_collections = function(data){
+		self.filetree = {
+				text: "Collections", 
+				icon: "glyphicon glyphicon-folder-close", 
+				li_attr: { "data-node-info": "Collections of handwritten documents available for transcription with TSX"},
+				state : {opened: true},
+				children : []
+				};
+		var calls = [];
 		for(var i in data){
-
 			var node = {
-				text: data[i].title +" ("+data[i].docId+")", 
+				text: data[i].colName, 
 				icon: "glyphicon glyphicon-folder-close", 
 				li_attr : {
-							"data-docid": data[i].docId, 
-							"data-node-info": "Some information about "+data[i].docId,
-						},
-				children: true,
+					"data-colid": data[i].colId, 
+					"data-node-info": "Some information about "+data[i].colId,
+				},
+				children: [],
 			};
-			if(self.ref != undefined && self.ref == data[i].docId){
+
+			if(self.col_ref != undefined && self.col_ref == data[i].colId){
 				node.state={opened: true};
 			}
-			self.files.children.push(node);			
+			self.filetree.children.push(node);
+			var url = self.data_server+"/collections/"+data[i].colId+"/list"; //gets json 
+			calls.push(self.load_json(url, self.handle_docslist, {colId: data[i].colId, i: i}));
 		}
-		//TODO get fulldocs on click and add to tree
-		//when that is there style like this:  icon : "glyphicon glyphicon-file", , icon: "jstree-file"
-		self.render_files();
 	}
-	this.render_files = function(){
-		/*$('#tsx-file-panel').jstree({ core : {
-				data : 	self.files 
-				ajax : { url : function(){console.log("here");} }
-			}
-		});*/ 
-		$('#tsx-file-panel').jstree({
-			'core' : {
-				'data' : function (obj, cb) {
-					if(obj.id === '#')
-						cb.call(this,self.files);
-					else{
-//						var fulldoc_url = self.data_server+"/"+obj.li_attr["data-docid"]+"/"+obj.li_attr["data-docid"]+".xml";
-						var fulldoc_url = self.data_server+"/"+obj.li_attr["data-docid"]+"/fulldoc"; //gets json 
-						//var fulldoc_url = self.data_server+"/"+obj.li_attr["data-docid"]+"/fulldoc.json";
-						self.cb = cb;
-						self.this_node = obj;
-						//self.load_xml(fulldoc_url, self.handle_fulldoc);
-						self.load_json(fulldoc_url, self.handle_fulldoc);
-					}
-				}
-			}
-		});
+	this.handle_docslist = function(data, args){
 		
+		for(var i in data){
+			var node = {
+				text: data[i].title +" ("+data[i].nrOfPages+")", 
+				icon: "glyphicon glyphicon-folder-close", 
+				li_attr : {
+					"data-docid": data[i].docId, 
+					"data-colid": args.colId, 
+					"data-node-info": "Some information about "+data[i].docId,
+					"class" : "tsx-page" 
+				},
+				children: [],
+			};
+			if(self.doc_ref != undefined && self.doc_ref == data[i].docId){
+				node.state={opened: true, selected: true};
+			}
+			self.filetree.children[args.i].children.push(node);			
+		}
+	//	console.log(self.filetree.children[args.i]);
+
+		if((parseInt(args.i)+1) == self.filetree.children.length)
+			self.render_filetree();
+	}
+	this.render_filetree = function(){
+	//	console.log(self.filetree);
+		
+		$('#tsx-file-panel').jstree("destroy");
+		$('#tsx-file-panel').jstree({'core' : {'data' : self.filetree}});
+
 		$(window).on("hashchange", function(){
 			self.set_refs();
 		});
 		
 		$('#tsx-file-panel').on('open_node.jstree', function (e, data) {
 			$("#" + data.node.id + " > a > i").removeClass("glyphicon-folder-close").addClass("glyphicon-folder-open");
-			var docid = $("#" + data.node.id ).attr("data-docid");
-			if(docid != undefined)	window.location.hash = window.location.hash.replace(/(|[\d]+)(|\/[\d]+)+$/,docid); 
-			
+			self.update_hash(data.node.id);			
 		});
 		$('#tsx-file-panel').on('close_node.jstree', function (e, data) {
 			$("#" + data.node.id + " > a > i").removeClass("glyphicon-folder-open").addClass("glyphicon-folder-close");
-			var docid = $("#" + data.node.id ).attr("data-docid");
-			var docid_re = new RegExp("^\#"+docid);
-			if(window.location.hash.match(docid_re)) window.location.hash = window.location.hash.replace(/[\d\/]+$/,""); 
+			self.update_hash(data.node.id);
 		});
-		
 		$('#tsx-file-panel').on('select_node.jstree', function (e, data) {
 			var info = $("#" + data.node.id ).attr("data-node-info");
 			$("#tsx-thumb-panel > .container-fluid > .row").html("<h2>"+$("#"+data.node.id+" > a ").text()+"</h2><p>"+info+"</p>");
 			if($("#"+data.selected).hasClass("tsx-page")){
 				$(".tsx-page > a > i").removeClass("glyphicon-folder-open").addClass("glyphicon-folder-close");
 				$("#" + data.node.id + " > a > i").removeClass("glyphicon-folder-close").addClass("glyphicon-folder-open");
-				self.load_thumbnails($("#"+data.selected).attr("data-pages"));
-				var box = $("#" + data.node.id ).attr("data-box");
-				var parent_doc = $("#" + data.node.id ).attr("data-docid");
-				var hash_re = new RegExp(/(|[\d]+)(|\/[\d]+)+$/);
-				if(box != undefined) window.location.hash = window.location.hash.replace(hash_re,parent_doc+'/'+box); 
+				var url = self.data_server+"/docs/"+data.node.li_attr["data-docid"]+"/fulldoc"; //gets json 
+				self.update_hash(data.node.id);			
+				self.load_json(url, self.load_thumbnails);
 			}
 		});
-		
 
-	}
-	this.handle_fulldoc = function(data){
-		if(!data){
-			$("#" + self.this_node.id).removeClass("jstree-loading").addClass("jstree-leaf");
-			return false;
-		}
-		
-		//in absence of boxes we will make some according to a random box size param...
-		var box_size = data.md.nrOfPages;
-		if(data.md.nrOfPages > 20)
-			box_size = data.md.nrOfPages/10;
-		var for_tree = [];
-		var i = 0;
-		//eek json available again
-		var p = data.pageList.pages
-		var first = p[0].pageNr; 
-		
-		var pages = [];
-		for(var ind in p){
-			var hum_ind = parseInt(ind)+1;
-			var page_ref = p[ind].key;
-			p[ind].page_ref = page_ref;// daft I know...
-		
-			self.pages[page_ref] = p[ind];
-			pages.push(page_ref);
-			if(hum_ind%box_size == 0 || hum_ind == p.length){
-				var last = p[ind].pageNr;
-				var box = first+" - "+last;
-				if(first == last) box = first;
-				var node = {text: box, icon: "glyphicon glyphicon-folder-close", li_attr: {
-					"data-pages" : pages, 
-					//"data-box": boxes_keys[i], 
-//					"data-docid" : $("docid", self.pages[pages[0]]).docId, //any page in the box will tell us the docId
-					"class" : "tsx-page" 
-					}
-				};
-				for_tree.push(node);
-				if(p[hum_ind] != undefined){
-					var first = p[hum_ind].pageNr; 
-				}
-				pages = [];
+		$('#tsx-file-panel').on('loaded.jstree', function (e, data) {
+			if($("#tsx-thumb-panel > .container-fluid > .row").children().length == 0 &&
+				self.doc_ref != undefined){
+				var url = self.data_server+"/docs/"+self.doc_ref+"/fulldoc"; //gets json 
+				self.load_json(url, self.load_thumbnails);
 			}
-		}
-
-		self.cb.call(this,for_tree);
-		
+		});
 	}
-	this.load_thumbnails = function(pages){
-		pages = pages.split(/,/);
-		$("#tsx-thumb-panel > .container-fluid > .row").html("");
-	
+	this.update_hash = function(node_id){
+		var hash_str = "";
+		self.ref_array  = [];
+		if($("#" + node_id ).attr("data-colid") != undefined)
+			self.ref_array[0] = $("#" + node_id ).attr("data-colid");
+		if($("#" + node_id ).attr("data-docid") != undefined)
+			self.ref_array[1] = $("#" + node_id ).attr("data-docid");
+		if($("#" + node_id ).attr("data-pageid") != undefined)
+			self.ref_array[2] = $("#" + node_id ).attr("data-pageid");
+
+		for (var i = 0;  i<self.ref_array.length; i++){
+			if(self.ref_array[i] != undefined)
+				hash_str += self.ref_array[i]+"/";
+		}
+		hash_str = hash_str.replace(/\/$/,"");
+		if(hash_str != undefined) window.location.hash = window.location.hash.replace(/(|[\d]+)(|\/[\d]+)+$/,hash_str); 	
+	}
+	this.load_thumbnails = function(data){
+//		console.log(data);
+		var pages = data.pageList.pages;
+		self.unload_thumbnails();
 		for(var i in pages){
 //			console.log(self.pages[pages[i]]);		
 			var thumb = '<div class="tsx-thumbbox col-sm-6 col-md-3">'+
-				'<a href="/transcribe#'+self.pages[pages[i]].docId+'/'+self.pages[pages[i]].pageNr+'" class="thumbnail">'+
-					'<img src="'+self.pages[pages[i]].thumbUrl+'" alt="Tumbnail for '+self.pages[pages[i]].thumbUrl+'"/>'+
-					' <div class="caption">Page '+self.pages[pages[i]].pageNr+' ('+self.humanise(self.pages[pages[i]].tsList.transcripts[0].status)+')</div>'+
+				'<a href="./transcribe#'+self.col_ref+'/'+pages[i].docId+'/'+pages[i].pageNr+'" class="thumbnail">'+
+					'<img src="'+pages[i].thumbUrl+'" alt="Tumbnail for '+pages[i].thumbUrl+'"/>'+
+					' <div class="caption">Page '+pages[i].pageNr+' ('+self.humanise(pages[i].tsList.transcripts[0].status)+')</div>'+
 				'</a>'+
 			'</div>';
 			$("#tsx-thumb-panel > .container-fluid > .row").append(thumb);
-			
-
 		}
+	}
+	this.unload_thumbnails = function(){
+		$("#tsx-thumb-panel > .container-fluid > .row").html("");
 	}
 	this.humanise = function(str){
 		str = str.replace(/_/g," ");
-		console.log("here");
 		return str.capitalise();
 	}
 	String.prototype.capitalise = function() {
@@ -328,23 +451,27 @@ function TSXPage( ){
 	this.name ="TSXPage";
 
 	this.init = function() {
-		self.set_refs();
 		self.data_store = self.data_server+"/"+self.ref;
+		self.set_refs();
 		self.init_image_panel();		
 		self.init_edit_panel();	
 		self.init_file_panel();	
 		self.init_thumb_panel();
 	}
 	this.set_refs = function(){
-	
-		self.ref = window.location.hash.replace(/^#([^\/]+)(\/.*|)$/, '$1');
-		if(self.ref === window.location.hash) self.ref = undefined;
-		self.sub_ref = window.location.hash.replace(/^#[^\/]+\/([^\/]+)$/, '$1');
-		if(self.sub_ref === window.location.hash) self.sub_ref = undefined;
-	//	console.log("REF: "+self.ref);
-	//	console.log("SUBREF: "+self.sub_ref);
-	
-	
+		self.ref_array = [];
+		self.ref_array = window.location.hash.replace(/^#/, "").split('/');
+
+		if(self.ref_array[0] != undefined) self.col_ref = self.ref_array[0];
+		if(self.ref_array[1] != undefined) self.doc_ref = self.ref_array[1];
+		if(self.ref_array[2] != undefined) self.page_ref = self.ref_array[2];
+/*
+		console.log("COL REF: "+self.col_ref);
+		console.log("DOC REF: "+self.doc_ref);
+		console.log("PAGE REF: "+self.page_ref);
+		
+		console.log(self.ref_array);
+*/	
 	}
 	this.init_image_panel = function(){	
 		if(self.image_panel == undefined) return false;
@@ -361,6 +488,7 @@ function TSXPage( ){
 		self.edit_panel_height = $(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top;
 		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
 		$(self.edit_panel).height( self.edit_panel_height );
+
 		self.edit_height = self.edit_panel_height - $("ul.nav-tabs", self.edit_panel).height() - $("#tsx-tei-buttons", self.edit_panel).height();		
 	}
 
@@ -388,7 +516,7 @@ function TSXPage( ){
 		//$(window).height() - $(self.edit_panel).offset().top - $(self.edit_panel).siblings(".panel-heading").offset().top
 		$(self.thumb_panel).height( self.thumb_panel_height );
 	}
-	
+
 	self.init();
 }
 
@@ -403,9 +531,8 @@ function TSXDocument( ){
 	this.name ="TSXDocument";
 
 	this.init = function(){
-
-		self.img_path = self.data_store+"/"+self.sub_ref+"/"+self.sub_ref+".jpg";	
-		self.load_image();
+		var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref;
+		self.load_xml(url, self.load_image);
 	}
 	
 	this.set_dimensions = function(img){
@@ -424,13 +551,14 @@ function TSXDocument( ){
 
 	}
 
-	this.load_image = function(){
+	this.load_image = function(data){
+		self.pageData = data;
+		self.img_path = $("trpPage > url", data).text();
 		var img = new Image();
 		$(img).attr('src', self.img_path).load(function() {
 			// Read, scale and set the dimensions based on image and available space in panel 
 			self.set_dimensions(img);
 			self.init_viewer();
-//			self.init_htr();
 			self.tsxTranscript = new TSXTranscript(self);
 		});
 	}
@@ -585,10 +713,10 @@ function TSXDocument( ){
 		this.data("cm").addLineClass(this.line_index, "text", "tsx-line-hovered");
 	};
     
-    this.hoverOut = function() {
+	this.hoverOut = function() {
 		this.attr({opacity:"0"});    
 		this.data("cm").removeLineClass(this.line_index, "text", "tsx-line-hovered");
-   }
+   	}
     
 	//Init the TSXImage object
 	//if(init)
@@ -608,9 +736,12 @@ function TSXTranscript( tsxDoc ){
 	this.name ="TSXTranscript";
 
 	this.init = function(){
-		
-		self.xml_path = self.data_store+"/"+self.sub_ref+"/"+self.sub_ref+".xml";
-		console.log("We should load the transcript from "+self.xml_path);
+		var timestamps = $.map($("tsList transcripts timestamp",tsxDoc.pageData).toArray(), function(val, i){
+			return $(val).text();
+		});
+		var latest = Math.max.apply(Math,timestamps);
+		self.xml_path = $("tsList transcripts timestamp:contains("+latest+")",tsxDoc.pageData).parent("transcripts").find("url").text();
+		console.log("We should load the transcript from ", self.xml_path);
 		self.load_xml(self.xml_path, self.handle_transcript);
 		self.cm = CodeMirror(document.getElementById("tsx-transcript-editor"),{lineNumbers: true, gutters: ["CodeMirror-linenumbers", "tsx-htr-available"]});
 		self.cm.setSize("auto", self.edit_height);		
@@ -622,7 +753,6 @@ function TSXTranscript( tsxDoc ){
 	this.handle_transcript = function(data){
 		
 		self.xmlData = data;
-		
 		//The raph set for the line polygons
 		tsxDoc.poly_set = tsxDoc.raph.set();
 		self.text = "";
@@ -751,7 +881,7 @@ function TSXTranscript( tsxDoc ){
 				});
 			}
 			if(!errors){
-				console.log(self.xmlData);
+				//console.log(self.xmlData);
 				self.save_xml(self.data_store,self.xmlData, function(){
 					BootstrapDialog.show({
 						type: BootstrapDialog.TYPE_SUCCESS,
@@ -765,10 +895,8 @@ function TSXTranscript( tsxDoc ){
 		
 	}
 	this.init_buttons = function(){
-//	$("#edit-area").on("mousedown", $.debounce(self.handle_move, 300));
-		$("#tsx-suggest-word").on("click", function(){self.tsxHTR.do_HTR(undefined, self.suggest_word);});
-		$("#tsx-suggest-line").on("click", function(){self.tsxHTR.do_HTR(undefined, self.suggest_line);});
-
+		$("#tsx-suggest-word").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_word);});
+		$("#tsx-suggest-line").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_line);});
 	}
 	this.suggest_line = function(data){
 		var this_line = self.cm.getCursor().line;
@@ -1001,6 +1129,71 @@ function TSXHTR( tsxTranscript ){
 	this.name ="TSXHTR";
 
 	this.init = function(){
+
+		self.wordgraph_url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/wordgraphs";
+		self.load_json(self.wordgraph_url, self.handle_wordgraphs);
+
+	}
+	this.handle_wordgraphs = function(data){
+		//TODO here we check the available wordgraph refs against what is in the transcript
+		self.wordgraph_data = data;
+		self.wordgraphs = {};
+		lineIds = [];
+		$("trpWordgraph", data).each(function(){
+			var lineId = $("lineId", this).text();
+			self.wordgraphs[lineId] = this;
+			lineIds.push(lineId);
+		});
+
+		lineIds = $.unique(lineIds);
+		var htr_available = false;
+		tsxTranscript.cm.eachLine(function(cm_line){			
+			var ref_re = new RegExp(cm_line.ref+'$');
+			var ids = $.grep( lineIds, function( wg, i ) {
+				return ref_re.test(wg);
+			});
+		
+			if(ids.length) tsxTranscript.cm.setGutterMarker(cm_line,"tsx-htr-available",self.makeMarker());	
+		});
+		//fix gutter marker snafu
+		$(".CodeMirror-gutter-wrapper").css({width: "39px", left: "-39px" });
+
+	}
+	
+	this.makeMarker = function() {
+		var marker = document.createElement("div");
+		marker.style.color = "#282";
+		marker.innerHTML = "●";
+		return marker;
+	}
+
+	this.get_HTR_data = function(line_ref, callback){
+		if(line_ref == undefined){
+			line_ref = self.get_line_ref();
+		}
+		var url = $("> nBestUrl", self.wordgraphs[line_ref]).text();
+		console.log("wordgrpahs here: ", $("> nBestUrl", self.wordgraphs[line_ref]).text());
+		self.load_xml(url, self.handle_suggestions);
+	}	
+	this.get_full_line_ref = function(){
+		return tsxTranscript.polys[tsxTranscript.cm.getCursor().line].full_line_ref;
+	}
+	this.get_line_ref = function(){
+		return tsxTranscript.polys[tsxTranscript.cm.getCursor().line].line_ref;
+	}
+	this.handle_suggestions = function(data){
+		console.log(data);
+	}
+
+	self.init();
+}
+/*
+function TSXHTR( tsxTranscript ){
+
+	var self = this;
+	this.name ="TSXHTR";
+
+	this.init = function(){
 		self.wordgraph_url = "/HTR_proxy.php?ref=JB."+self.ref;
 		self.load_json(self.wordgraph_url, self.handle_wordgraphs);
 
@@ -1093,23 +1286,6 @@ function TSXHTR( tsxTranscript ){
 		}
 		
 		//Let's pretend when no connection (on train or abroad) we will send back a pretend token.target response
-		/*callback({target: "To the distinction is material: as for fined incline comes", 
-						targetSegmentation: [
-							[0,2],
-							[3,6],
-							[7,18],
-							[19,21],
-							[22,30],
-							[30,31],
-							[32,34],
-							[35,38],
-							[39,44],
-							[45,52],
-							[53,57]
-							]
-						});
-		return;
-		*/
 		if(self.HTR_is_ready){
 			console.log("sending ref: "+full_line_ref);
 //			$("#htr_target").editableItp('endSession');	
@@ -1213,7 +1389,7 @@ function TSXHTR( tsxTranscript ){
 
 	self.init();
 }
-
+*/
 function TSXController (config){
 
 	this.init = function(config){
@@ -1237,13 +1413,11 @@ function TSXController (config){
 		TSXHTR.constructor = TSXHTR;
 		
 		var tsxUser = new TSXUser();
-
 		if(config.image_panel != undefined){
 			var tsxDoc = new TSXDocument();
 		}
 		if(config.file_panel != undefined){
 			var tsxFiles = new TSXFiles();
-
 		}
 
 //		tsxTranscript = new TSXTranscript();
