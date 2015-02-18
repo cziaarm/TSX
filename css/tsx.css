@@ -7,7 +7,7 @@ body { padding 0; margin: 0; }
 #tsx-file-panel { overflow: auto;}
 #tsx-thumb-panel { overflow: auto;}
 .tsx-thumbbox .caption {text-align: center;}
-
+.tsx-loading {background:url(throbber.gif);}
 /*tei CodeMirror css */
 
 .tsx-htr-available { color: #0f0; }
@@ -35,11 +35,11 @@ span.superscript{text-decoration:none;vertical-align:baseline;position:relative;
 /*Custom icons for TEI (which I'll have to make more of*/
 @font-face {
 	font-family: 'icomoon';
-	src:url('/fonts/icomoon.eot?pwcuv3');
-	src:url('/fonts/icomoon.eot?#iefixpwcuv3') format('embedded-opentype'),
-		url('/fonts/icomoon.woff?pwcuv3') format('woff'),
-		url('/fonts/icomoon.ttf?pwcuv3') format('truetype'),
-		url('/fonts/icomoon.svg?pwcuv3#icomoon') format('svg');
+	src:url('../fonts/icomoon.eot?pwcuv3');
+	src:url('../fonts/icomoon.eot?#iefixpwcuv3') format('embedded-opentype'),
+		url('../fonts/icomoon.woff?pwcuv3') format('woff'),
+		url('../fonts/icomoon.ttf?pwcuv3') format('truetype'),
+		url('../fonts/icomoon.svg?pwcuv3#icomoon') format('svg');
 	font-weight: normal;
 	font-style: normal;
 }
