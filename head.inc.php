@@ -22,6 +22,7 @@ switch($knowthyself){
 		<!-- transcribe css libs -->
 		<link href="<?php print $TSX_root; ?>/css/codemirror.css" rel="stylesheet"/>	
 		<link href="<?php print $TSX_root; ?>/css/merge.css" rel="stylesheet"/>
+		<link href="<?php print $TSX_root; ?>/css/show-hint.css" rel="stylesheet"/>
 	
 	<?php break;}
 	default: {}
@@ -60,6 +61,7 @@ switch($knowthyself){
 		<script src="<?php print $TSX_root; ?>/js/codemirror.js"></script>
 		<script src="<?php print $TSX_root; ?>/js/diff_match_patch.js"></script>
 		<script src="<?php print $TSX_root; ?>/js/merge.js"></script>	
+		<script src="<?php print $TSX_root; ?>/js/show-hint.js"></script>	
 		<script src="<?php print $TSX_root; ?>/js/htr/require.custom.js"></script>
 
 	<?php break;}

@@ -264,7 +264,7 @@ function TSXUser( ){
 
 				if(data){
 					$('#loginModal').modal("hide");
-					$.cookie("TSX_session", $("trpUserLogin > sessionId",data).text());
+					$.cookie("TSX_session", $("trpUserLogin > sessionId",data).text(), {expires: null});
 					$("body").trigger('cookieUpdate');
 					BootstrapDialog.show({
 						type: BootstrapDialog.TYPE_SUCCESS,
@@ -820,6 +820,14 @@ function TSXTranscript( tsxDoc ){
 		self.load_xml(self.xml_path, self.handle_transcript);
 		self.cm = CodeMirror(document.getElementById("tsx-transcript-editor"),{lineNumbers: true, gutters: ["CodeMirror-linenumbers", "tsx-htr-available"]});
 		self.cm.setSize("auto", self.edit_height);		
+		self.cm.setOption("extraKeys", {
+  			Enter: "goLineDown" ,
+			"Ctrl-Enter": function(cm){ cm.replaceSelection("\n"); },
+			Tab: function(cm){ 
+				self.tsxHTR.get_HTR_data(undefined);
+				console.log("tab pressed");
+			}
+		});
 	}
 	this.removeNSAttr = function(ele){
 		if(ele == undefined) return "";
@@ -979,7 +987,7 @@ function TSXTranscript( tsxDoc ){
 		
 	}
 	this.init_buttons = function(){
-//		$("#tsx-suggest").on("click", function(){self.tsxHTR.get_HTR_data(undefined);});
+		$("#tsx-suggest").on("click", function(){self.tsxHTR.get_HTR_data(undefined);});
 /*		$("#tsx-suggest-word").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_word);});
 		$("#tsx-suggest-line").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_line);});*/
 	}
@@ -1196,6 +1204,7 @@ function TSXHTR( tsxTranscript ){
 	}
 	this.handle_wordgraphs = function(data){
 		//TODO here we check the available wordgraph refs against what is in the transcript
+		//console.log(data);
 		self.wordgraph_data = data;
 		self.wordgraphs = {};
 		lineIds = [];
@@ -1213,12 +1222,18 @@ function TSXHTR( tsxTranscript ){
 				return ref_re.test(wg);
 			});
 		
-			if(ids.length) tsxTranscript.cm.setGutterMarker(cm_line,"tsx-htr-available",self.makeMarker());	
+			if(ids.length){
+				tsxTranscript.cm.setGutterMarker(cm_line,"tsx-htr-available",self.makeMarker());
+//TODO Maybe add the line_ref as a class to the code mirror line... 
+//to at lest distinguish it from user added lines
+//we should also be tracking the polys by ref not by index...
+//				tsxTranscript.cm.addLineClass(cm_line, cm_line.ref);
+			}
 		});
 		//fix gutter marker snafu
 		//setTimeout(function(){ $(".CodeMirror-gutter-wrapper").css({width: "39px", left: "-39px" }); }, 1000);
 		$(".CodeMirror-gutter-wrapper").css({width: "39px", left: "-39px" });
-
+/*
 		 var popover = $('#tsx-suggest').popover({
 			 trigger : 'click',  
 			 html: 'true',
@@ -1227,6 +1242,7 @@ function TSXHTR( tsxTranscript ){
 			 }).on('show.bs.popover', function() { 
 				self.get_HTR_data(undefined);
 			 });	
+*/
 	}
 	
 	this.makeMarker = function() {
@@ -1253,30 +1269,37 @@ function TSXHTR( tsxTranscript ){
 	this.get_line = function(){
 		return tsxTranscript.cm.getLine(tsxTranscript.cm.getCursor().line);
 	}
-	this.handle_suggestions = function(data, args){
-		var sug_lines = data.split(/\n/);
-//		var popover = $("#tsx-suggest").siblings("div.popover");
-		var popover = $("body").find("div.popover");
-		$(popover).find("div.popover-content").html('<ul class="list-unstyled"></ul>');
-		var edit_line = self.get_line();
 
-			var edit_re = new RegExp('^'+edit_line);
-			var edit_words = edit_line.split(/\s+/);
-				//return ref_re.test(wg);
+	this.suggestions = function(cm, sug) {
+
+		var edit_line = self.get_line();
+		var edit_re = new RegExp('^'+edit_line+"(.*)");
+		var edit_words = edit_line.split(/\s+/);
+		//top matches have an exact match with the token
 		var top_match = [];
-		for(var i in sug_lines){
-console.log(sug_lines[i]);
-			var sug_line = sug_lines[i].replace(/^.*<s>\s*(.*)<\/s>.*$/, '$1');
+		// next matches don't
+		var next_match = [];
+		for(var i in sug.lines){
+		//	console.log(sug.lines[i]);
+			var sug_line = sug.lines[i].replace(/^.*<s>\s*(.*)<\/s>.*$/, '$1');
 			var sug_words = sug_line.split(/\s+/);
 			if(edit_re.test(sug_line)){
 				console.log("Match", sug_line);
-				top_match.push(sug_line);
+				top_match.push(RegExp.$1);
+			}else{
+				var remains = sug_words.slice(edit_words.length-1).join(" ");
+				next_match.push(remains);
 			}
-			console.log(sug_words[edit_words.length-1]);
-			//$(popover).find("div.popover-content ul").append('<li>'+sug_line+'</li>');
-			//console.log(sug_line);
 		}
-
+		var matches = $.unique(top_match.concat(next_match));
+  		var inner = {from: cm.getCursor(), to: cm.getCursor(), list: matches};
+  		return inner;
+	}
+	
+	this.handle_suggestions = function(data, args){
+		var sug_lines = data.split(/\n/);
+		var edit_line = self.get_line();
+		CodeMirror.showHint(tsxTranscript.cm, self.suggestions, {lines: sug_lines});
 	}
 
 	self.init();
