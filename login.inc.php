@@ -10,7 +10,7 @@
                 <!-- The form is placed inside the body of modal -->
                 <form id="loginForm" method="post" class="form-horizontal">
                     <div class="form-group">
-                        <label class="col-xs-3 control-label">Username</label>
+                        <label class="col-xs-3 control-label">Email</label>
                         <div class="col-xs-5">
                             <input type="text" class="form-control" name="user" />
                         </div>
@@ -25,7 +25,7 @@
 
                     <div class="form-group">
                         <div class="col-xs-5 col-xs-offset-3">
-                            <button type="submit" class="btn btn-default">Login</button>
+                            <button type="submit" class="btn btn-default">Sign in</button>
                         </div>
                     </div>
                 </form>
@@ -45,31 +45,31 @@
                 <!-- The form is placed inside the body of modal -->
                 <form id="createAccountForm" method="post" class="form-horizontal">
                     <div class="form-group">
-                        <label class="col-xs-3 control-label">Username</label>
+                        <label class="col-xs-3 control-label">Email</label>
                         <div class="col-xs-5">
-                            <input type="text" class="form-control" name="username" />
+                            <input type="text" class="form-control" name="user" />
                         </div>
                     </div>
-
                     <div class="form-group">
                         <label class="col-xs-3 control-label">Password</label>
                         <div class="col-xs-5">
-                            <input type="password" class="form-control" name="password" />
+                            <input type="password" class="form-control" name="pw" />
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="col-xs-3 control-label">Given name</label>
                         <div class="col-xs-5">
-                            <input type="text" class="form-control" name="given" />
+                            <input type="text" class="form-control" name="firstName" />
                         </div>
 		    </div>
                     <div class="form-group">
                         <label class="col-xs-3 control-label">Family name</label>
                         <div class="col-xs-5">
-                            <input type="text" class="form-control" name="family" />
+                            <input type="text" class="form-control" name="lastName" />
                         </div>
                     </div>
+<!--
                     <div class="form-group">
                         <label class="col-xs-3 control-label">Email</label>
                         <div class="col-xs-5">
@@ -82,6 +82,7 @@
                             <input type="text" class="form-control" name="affiliation" />
                         </div>
                     </div>
+-->
                     <div class="form-group">
                         <label class="col-xs-3 control-label">Gender</label>
                         <div class="col-xs-5">
@@ -92,16 +93,16 @@
 			    </select>
                         </div>
                     </div>
-                    <div class="form-group">
+                   <div class="form-group">
 		        <div class="col-xs-3 control-label"></div>
                         <div class="col-xs-5">	
 	 			<div class="g-recaptcha" data-sitekey="6LfKFQITAAAAAO4EFVHH0khqnzs9P2Y61MDmvFES"></div>
 			</div>
                     </div>
-
+                    <input type="hidden" class="form-control" name="application" value="TSX"/>
                     <div class="form-group">
                         <div class="col-xs-5 col-xs-offset-3">
-                            <button type="submit" class="btn btn-default">Login</button>
+                            <button type="submit" class="btn btn-default">Sign up</button>
                         </div>
                     </div>
                 </form>
