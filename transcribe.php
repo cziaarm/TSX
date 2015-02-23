@@ -43,13 +43,24 @@ require("./head.inc.php");?>
 				<div class="tab-content">
 					<div id="tsx-edit" class="tab-pane fade in active">
 						<div id="tsx-tei-buttons" class="btn-toolbar" role="toolbar" aria-label="...">
-							<div class="btn-group" role="group" aria-label="Zoom controls">
+							<div class="btn-group" role="group" aria-label="TEI tools">
 								<button id="tsx-tei-linebreak" type="button" class="btn btn-default" title="Pagebreak"><span class="icon icon-pagebreak"></span></button>
 								<button id="tsx-tei-heading" type="button" class="btn btn-default" title="Heading"><span class="icon icon-heading"></span></button>
-								<button id="tsx-suggest-word" type="button" class="btn btn-default" title="Suggest next word">Sw<!--<span class="icon icon-suggest-word"></span>--></button>
-								<button id="tsx-suggest-line" type="button" class="btn btn-default" title="Suggest whole line">Sl<!--<span class="icon icon-suggest-line"></span>--></button>
-					
-							</div>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+								<button id="" type="button" class="btn btn-default" title="tei holding button">tei</button>
+
+
+
+	
+								<button id="tsx-suggest" type="button" class="btn btn-default" data-toggle="popover" title="Suggestions for next word(s)" data-html="true" data-content="<img src='css/throbber.gif'/>"><span class="glyphicon glyphicon-question-sign"></span></button>
+						</div>
 						</div>
 <!--						<div id="tsx-tei-buttons" rel="format" style="display: block;">
 							<img src="/td/extensions/JBTEIToolbar/images/jb-button-linebreak.png?20141114T085607Z" width="22" height="22" alt="Line break" title="Line break" rel="line-break" class="tool tool-button">
