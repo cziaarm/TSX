@@ -1,6 +1,5 @@
 						<div id="tsx-tei-buttons" class="btn-toolbar" role="toolbar" aria-label="...">
 							<div class="btn-group" role="group" aria-label="TEI tools">
-<!--								<button id="tsx-tei-linebreak" type="button" class="btn btn-default" title="Pagebreak"><span class="icon icon-pagebreak"></span></button> -->
 								<button id="tsx-tei-head" type="button" class="btn btn-default btn-sm tsx-tei-wrap" title="Heading"><span class="icon icon-heading"></span></button>
 								<button id="tsx-tei-p" type="button" class="btn btn-default btn-sm tsx-tei-wrap" title="Paragraph">p</button>
 								<button id="tsx-tei-add" type="button" class="btn btn-default btn-sm tsx-tei-wrap" title="Addition">[+]</button>
@@ -15,7 +14,6 @@
 								<button id="tsx-tei-amp" type="button" class="btn btn-default btn-sm tsx-tei-insert" title="Ampersand">&amp;</button>
 								<button id="tsx-tei-longdash" type="button" class="btn btn-default btn-sm tsx-tei-insert" title="Long dash">-</button>
 								<button id="tsx-tei-comment" type="button" class="btn btn-default btn-sm tsx-tei-wrap" title="Comment">&lt;!--</button>
-<!--								<button id="tsx-suggest" type="button" class="btn btn-default" data-toggle="popover" title="Suggestions for next word(s)" data-html="true" data-content="<img src='css/throbber.gif'/>"><span class="glyphicon glyphicon-question-sign"></span></button> -->
 						</div>
 						</div>
 

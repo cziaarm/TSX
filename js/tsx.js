@@ -1231,10 +1231,10 @@ function TSXTranscript( tsxDoc ){
 	this.render_wysiwyg = function(){
 	//	console.log("Here");
 		$("#tsx-w-transcript-editor").height(50);
-		new Medium({
+/*		new Medium({
                 	element: document.getElementById('tsx-w-transcript-editor'),
 			mode: Medium.richMode
-            	});	
+            	});	*/
 
 /*		(function(){
 	var article = document.getElementById('rich_with_invoke_element'),
