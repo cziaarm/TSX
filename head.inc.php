@@ -24,7 +24,7 @@ switch($knowthyself){
 		<link href="<?php print $TSX_root; ?>/css/merge.css" rel="stylesheet"/>
 		<link href="<?php print $TSX_root; ?>/css/show-hint.css" rel="stylesheet"/>
 	
-		<link href="<?php print $TSX_root; ?>/css/medium.css" rel="stylesheet"/>
+<!--		<link href="<?php print $TSX_root; ?>/css/medium.css" rel="stylesheet"/> -->
 
 
 	<?php break;}
@@ -69,10 +69,10 @@ switch($knowthyself){
 		<script src="<?php print $TSX_root; ?>/js/xml.js"></script>	
  		<script src="<?php print $TSX_root; ?>/js/htr/require.custom.js"></script>
 
-		<script src="<?php print $TSX_root; ?>/js/rangy-core.js"></script>	
+<!--		<script src="<?php print $TSX_root; ?>/js/rangy-core.js"></script>	
 		<script src="<?php print $TSX_root; ?>/js/rangy-classapplier.js"></script>	
 		<script src="<?php print $TSX_root; ?>/js/undo.js"></script>	
-		<script src="<?php print $TSX_root; ?>/js/medium.min.js"></script>	
+		<script src="<?php print $TSX_root; ?>/js/medium.min.js"></script>	-->
 
 
 	<?php break;}

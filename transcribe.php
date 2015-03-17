@@ -37,7 +37,7 @@ require("./head.inc.php");?>
 			<div class="panel-body" id="tsx-edit-panel">
 				<ul class="nav nav-tabs">
 					<li role="presentation" class="active"><a data-toggle="tab" href="#tsx-edit">Edit</a></li>
-					<li role="presentation"><a data-toggle="tab" href="#tsx-wysiwyg">Wysiwyg</a></li>
+<!--					<li role="presentation"><a data-toggle="tab" href="#tsx-wysiwyg">Wysiwyg</a></li> -->
 					<li role="presentation"><a data-toggle="tab" href="#tsx-preview">Preview</a></li>
 					<li role="presentation"><a data-toggle="tab" href="#tsx-diffs">Diffs</a></li>
 				</ul>
@@ -46,10 +46,10 @@ require("./head.inc.php");?>
 						<?php require("./tei-buttons.inc.php"); ?>
 						<div id="tsx-transcript-editor"></div>
 					</div>
-					<div id="tsx-wysiwyg" class="tab-pane fade">
+<!--					<div id="tsx-wysiwyg" class="tab-pane fade">
 						<?php require("./tei-buttons.inc.php"); ?>
 						<div id="tsx-w-transcript-editor"></div>	
-					</div>
+					</div> -->
 
 					<div id="tsx-preview" class="tab-pane fade">
 						
