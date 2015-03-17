@@ -26,6 +26,7 @@
                     <div class="form-group">
                         <div class="col-xs-5 col-xs-offset-3">
                             <button type="submit" class="btn btn-default">Sign in</button>
+							<span class="btn btn-default" id="forgotPw">Forgotten password?</span>
                         </div>
                     </div>
                 </form>

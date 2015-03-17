@@ -24,6 +24,9 @@ switch($knowthyself){
 		<link href="<?php print $TSX_root; ?>/css/merge.css" rel="stylesheet"/>
 		<link href="<?php print $TSX_root; ?>/css/show-hint.css" rel="stylesheet"/>
 	
+		<link href="<?php print $TSX_root; ?>/css/medium.css" rel="stylesheet"/>
+
+
 	<?php break;}
 	default: {}
 }
@@ -45,6 +48,7 @@ switch($knowthyself){
     <script src="<?php print $TSX_root; ?>/js/bootstrap-dialog.js"></script> 
     <script src="<?php print $TSX_root; ?>/js/jquery.validate.min.js"></script>
     <script src="<?php print $TSX_root; ?>/js/jquery.cookie.js"></script>
+	<script src="<?php print $TSX_root; ?>/js/xml2json.js"></script>
     <script src='https://www.google.com/recaptcha/api.js'></script> 
 
 	<?php
@@ -63,7 +67,13 @@ switch($knowthyself){
 		<script src="<?php print $TSX_root; ?>/js/merge.js"></script>	
 		<script src="<?php print $TSX_root; ?>/js/show-hint.js"></script>	
 		<script src="<?php print $TSX_root; ?>/js/xml.js"></script>	
-		<script src="<?php print $TSX_root; ?>/js/htr/require.custom.js"></script>
+ 		<script src="<?php print $TSX_root; ?>/js/htr/require.custom.js"></script>
+
+		<script src="<?php print $TSX_root; ?>/js/rangy-core.js"></script>	
+		<script src="<?php print $TSX_root; ?>/js/rangy-classapplier.js"></script>	
+		<script src="<?php print $TSX_root; ?>/js/undo.js"></script>	
+		<script src="<?php print $TSX_root; ?>/js/medium.min.js"></script>	
+
 
 	<?php break;}
 	default: {}

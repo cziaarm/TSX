@@ -53,9 +53,9 @@ require("./head.inc.php");?>
 //		if(window.location.host.match(/devorkin/)){
 //			var data_server = "/local_data";
 //		}else{
-			var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerTesting/rest/";
+//			var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerTesting/rest/";
 //		}
-		
+			var data_server = "https://dbis-faxe.uibk.ac.at/TrpServer/rest/";
 		tsxController = new TSXController({data_server: data_server});
 	});
 </script>

@@ -44,14 +44,19 @@ function TSX(config){
 	this.load_json = function(url, callback, args){
 		self.rest(url, null, callback, "json", "GET", args);
 	}
-	this.save_xml = function(url, data, callback, args){
+	this.post_data = function(url, data, callback, args){
+		console.log("posting data");
 		self.rest(url, data, callback, "xml", "POST", args);
 	}
+	this.save_xml = function(url, data, callback, args){
+		self.rest(url, data, callback, "xml", "POST", args, true);
+	}
+
 	this.save_json = function(url, data, callback, args){
 		self.rest(url, data, callback, "json", "POST", args);
 	}
 
-	this.rest = function(url, data, callback, dataType, type, args){
+	this.rest = function(url, data, callback, dataType, type, args, postfile){
 	
 		var params = {crossDomain: true, xhrFields: {withCredentials: true}};
 		if(type != undefined) //default to GET
@@ -64,9 +69,14 @@ function TSX(config){
 //			}
 		}
 		params.data = data;
+		if(postfile){
+			console.log("Setting contentType to false");
+			params.processData = false;
+			params.contentType = false;
+		}
 //		if($.cookie("TSX_session") != undefined)
 //			params.data.JSESSIONID = $.cookie("TSX_session");
-		//console.log(params);
+		console.log(url, params);
 		$.ajax(url, params ).
 		done(function(data, textStatus, jqxhr){
 			//console.log("rest is done");
@@ -200,6 +210,31 @@ function TSXPage( ){
 		};
 	}
 
+	this.load_thumbnails = function(data){
+//		console.log(data);
+		var pages = data.pageList.pages;
+		self.unload_thumbnails();
+		for(var i in pages){
+//			console.log(self.pages[pages[i]]);		
+			var thumb = '<div class="tsx-thumbbox col-sm-6 col-md-3">'+
+				'<a href="./transcribe#'+self.col_ref+'/'+pages[i].docId+'/'+pages[i].pageNr+'" class="thumbnail">'+
+					'<img src="'+pages[i].thumbUrl+'" alt="Tumbnail for '+pages[i].thumbUrl+'"/>'+
+					' <div class="caption">Page '+pages[i].pageNr+' ('+self.humanise(pages[i].tsList.transcripts[0].status)+')</div>'+
+				'</a>'+
+			'</div>';
+			$("#tsx-thumb-panel > .container-fluid > .row").append(thumb);
+		}
+	}
+	
+	this.unload_thumbnails = function(){
+		$("#tsx-thumb-panel > .container-fluid > .row").html("");
+	}
+
+	this.humanise = function(str){
+		str = str.replace(/_/g," ");
+		return str.capitalise();
+	}
+
 
 	self.init();
 }
@@ -215,20 +250,44 @@ function TSXUser( ){
 		self.init_signin();
 		self.init_signup();
 		self.init_signout();
+		console.log(window.location.pathname);
+		if(window.location.pathname === "/userarea"){
+			self.recent_activity();
+		}
+		
 	}
 	this.update_login_state = function(){
 		if($.cookie("TSX_session") != undefined){
 			//console.log($.cookie("TSX_session"));
 			$(".tsx-not-logged-in").hide();
+			console.log(localStorage.userdata);
+			self.userdata = $.parseJSON(localStorage.userdata).trpUserLogin;
+			var possessive = "'s";
+			if(self.userdata.firstname.slice(-1) === "s") possessive = "'"; //Just in case Chris Morris or Optimus Prime sign up
+			$("ul#tsx-salutation > li > a").html(self.userdata.firstname+possessive+" TSX");
+			$("ul#tsx-salutation").show();
 			$(".tsx-logged-in").show();
 		}else{
 			$(".tsx-logged-in").hide();
+			$("ul#tsx-salutation").hide();
 			$(".tsx-not-logged-in").show();
 	
 		}	
 	}
+	/*
 	this.handle_user = function(data){
 		console.log(data);
+	}
+	*/
+	this.recent_activity = function(){
+		console.log(self.userdata);
+		for(var i in self.userdata.collectionList.colList){
+			var col = self.userdata.collectionList.colList[i];
+			var url = self.data_server+"collections/"+col.colId+"/recent";
+			console.log(url);	
+			//TODO make load_thumbnails more generic and promote it to TSXPage
+			self.load_json(url, self.load_thumbnails);
+		}
 	}
 	this.init_signin = function() {
 		$('#loginForm').validate({
@@ -260,16 +319,21 @@ function TSXUser( ){
 			var params = $(this).serialize();
 			//TODO the real one is post
 //			self.load_xml(self.data_server+"auth/login_debug?"+params, function(data){
-			self.save_xml(self.data_server+"auth/login", params, function(data){
+			self.post_data(self.data_server+"auth/login", params, function(data){
 				console.log("userdata", data);
 				if(data){
 					$('#loginModal').modal("hide");
 					$.cookie("TSX_session", $("trpUserLogin > sessionId",data).text(), {expires: null});
 					$("body").trigger('cookieUpdate');
+					var greeting = $("trpUserLogin > userName",data).text();
+					if($("trpUserLogin > firstname",data).length != 0) greeting = $("trpUserLogin > firstname",data).text();
+					console.log(data);
+					localStorage['userdata'] = xml2json(data).replace(/undefined/,""); //xml2json sticks a random undefined in at start of object
+ 					
 					BootstrapDialog.show({
 						type: BootstrapDialog.TYPE_SUCCESS,
 						title: "Login successful",
-						message: "<p>Welcome back "+$("trpUserLogin > userName",data).text()+"</p>",
+						message: "<p>Welcome back "+greeting+"</p>",
 						buttons: [{label: 'OK',
                 						action: function(dialogItself){
                     							dialogItself.close();
@@ -293,6 +357,14 @@ function TSXUser( ){
 			});
 			return false;
 		});
+		$("#forgotPw").on("click", function(){
+			params = {application: "TSX", user: $("#loginForm input[name='user']").val()};
+			self.post_data(self.data_server+"user/forgotPw", params, function(data){
+				console.log("forgotPw", data);
+			});
+
+		});
+
 	}
 	this.init_signup = function() {
 		
@@ -367,7 +439,7 @@ function TSXUser( ){
 
 			var params = $(this).serialize();
 			params = params.replace(/g-recaptcha-response/, "token");
-			self.save_xml(self.data_server+"user/register",params, function(data){
+			self.post_data(self.data_server+"user/register",params, function(data){
 				console.log("registeref: ",data);
 				$('#createAccountModal').modal("hide");
 				if(data !== false){
@@ -405,7 +477,7 @@ function TSXUser( ){
 					message: "<p>Are you sure you would like to sign out of TSX.</p>",
 					buttons: [{label: 'OK',
 							action: function(dialogItself){
-								self.save_xml(self.data_server+"auth/logout", {},  function(data){
+								self.post_data(self.data_server+"auth/logout", {},  function(data){
 									$.removeCookie("TSX_session");
 									$("body").trigger('cookieUpdate');
 									dialogItself.close();
@@ -560,6 +632,7 @@ function TSXFiles( ){
 		hash_str = hash_str.replace(/\/$/,"");
 		if(hash_str != undefined) window.location.hash = window.location.hash.replace(/(|[\d]+)(|\/[\d]+)+$/,hash_str); 	
 	}
+	/*
 	this.load_thumbnails = function(data){
 //		console.log(data);
 		var pages = data.pageList.pages;
@@ -575,13 +648,16 @@ function TSXFiles( ){
 			$("#tsx-thumb-panel > .container-fluid > .row").append(thumb);
 		}
 	}
+	
 	this.unload_thumbnails = function(){
 		$("#tsx-thumb-panel > .container-fluid > .row").html("");
 	}
+	
 	this.humanise = function(str){
 		str = str.replace(/_/g," ");
 		return str.capitalise();
 	}
+	*/
 	self.init();
 }
 
@@ -847,7 +923,7 @@ function TSXTranscript( tsxDoc ){
 			"Ctrl-Enter": function(cm){ cm.replaceSelection("\n"); },
 			Tab: function(cm){ 
 				self.tsxHTR.get_HTR_data(undefined, 1);
-				console.log("tab pressed");
+				//console.log("tab pressed");
 			},
 			"Shift-Tab": function(cm){ 
 				self.tsxHTR.get_HTR_data(undefined);
@@ -864,6 +940,9 @@ function TSXTranscript( tsxDoc ){
 	}
 	this.handle_transcript = function(data){	
 		
+		$(window).bind('beforeunload', function(){
+			if(!self.cm.isClean()) return 'There are unsaved changes to this transcript';
+		});
 		self.xmlData = data;
 		//The raph set for the line polygons
 		tsxDoc.poly_set = tsxDoc.raph.set();
@@ -882,6 +961,12 @@ function TSXTranscript( tsxDoc ){
 				});
 				raw_text_line = raw_text_line.replace(/\s+$/, "");
 			}
+			raw_text_line = raw_text_line.replace(/&apos;/g, "'")
+								   .replace(/&quot;/g, '"')
+								   .replace(/&gt;/g, '>')
+								   .replace(/&lt;/g, '<');
+								   //.replace(/&amp;/g, '&');
+							   
 			//line ref
 			var line_ref = self.removeNSAttr($(this).attr("id"));
 			//make text block for codemirror
@@ -896,7 +981,6 @@ function TSXTranscript( tsxDoc ){
 			poly.ref = line_ref;
 			self.polys[i]=poly;
 		});
-		
 
 		//	self.cm.setValue(self.text);
 		self.cm.setValue(self.lines);
@@ -913,6 +997,9 @@ function TSXTranscript( tsxDoc ){
 		
 		//as soon as we have some parsed transcript data we init HTR
 		self.tsxHTR = new TSXHTR(self);
+
+		//here to start with.... until I think of somewhere better
+		self.render_wysiwyg();
 
 		//set preview
 		self.render_preview();
@@ -938,6 +1025,19 @@ function TSXTranscript( tsxDoc ){
 				self.go_to_line(self.polys[line], line);
 			//}
 		});
+		
+		//we will automagically keep the ampersands in line
+		self.cm.on("change", function(cm, changeObj){
+			var new_text = changeObj.text[0]; //not sure what situation would cause more than one item in this array			
+			//will only replace & !not &amp;... this is important otherwise we would have runaway replacement!!
+			var re = /&(?!amp;)/g;
+			if(re.exec(new_text)){
+//				console.log("change ampersand");
+	//			console.log(changeObj.from, changeObj.to);
+				self.cm.replaceRange(new_text.replace(re, "&amp;"), changeObj.from, {line: changeObj.to.line, ch: changeObj.to.ch+new_text.length});
+			}
+		});
+		
 		$("#tsx-toggle-transcript").on("click", function(e){
 			var button = this;
 			if($(button).find("span").hasClass("glyphicon-file")){
@@ -971,14 +1071,43 @@ function TSXTranscript( tsxDoc ){
 		$("#tsx-save-tei").on("click", function(){
 			if(!self.cm.isClean()){ // any change whatsoever
 				var errors = false;
+				var open_tei = [];
 				self.cm.eachLine(function(cm_line){
+				
+					var lineObj = self.cm.lineInfo(cm_line);
+					if(!self.validateXML(cm_line.text, true)){ //we have a possible multi line tei tag to close...
+						var re = /<\/[^>]+>/g;
+						if(cm_line.text.match(re)){
+							var open = open_tei.pop();
+							console.log("use this to open", open);
+							self.cm.replaceRange(open, {line: lineObj.line, ch:0}, null);
+						}else{
+
+							//we need to close any multi line open tags in this line
+							var re = /(<([^\/\s]+)[^>]*>)/g;
+							if(cm_line.text.match(re)){
+								var tag_name = RegExp.$2;
+								var tag = RegExp.$1;
+								var close = "</"+tag_name+">";
+								self.cm.replaceRange(close, {line: lineObj.line, ch:cm_line.text.length}, null);
+								open_tei.push(tag);
+							}
+						}
+					}
 					//check xml validity
 					if(self.validateXML(cm_line.text)){
-					
-						line_index = self.cm.lineInfo(cm_line).line;
+							
+							
+						
+						line_index = lineObj.line;
 						from_xml = $("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).html();
 						//if so did the actual text change
 						if(cm_line.text.localeCompare(self.removeNSAttr(from_xml))){
+							//lets encode (after all that)
+							cm_line.text = cm_line.text.replace(/</g, '&lt;')
+							   .replace(/>/g, '&gt;')
+							   .replace(/"/g, '&quot;')
+							   .replace(/'/g, '&apos;');
 							$("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).html(cm_line.text);
 							//now loop through each word... let's hope not
 							/*
@@ -1002,15 +1131,18 @@ function TSXTranscript( tsxDoc ){
 				});
 			}
 			if(!errors){
-				//console.log(self.xmlData);
-				self.save_xml(self.data_store,self.xmlData, function(){
+				console.log(self.xmlData);
+				var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/text";
+				self.save_xml(url,self.xmlData, function(data){
+					console.log(data);
 					BootstrapDialog.show({
 						type: BootstrapDialog.TYPE_SUCCESS,
-						title: "Saved XML",
-						message: "<p>TSX has saved your XML... maybe</p>"
+						title: "Saved Transcript",
+						message: "<p>Transcript changes have been saved.</p>"
 					});
 				});
-			}
+				
+				}
 		});
 	}
 	
@@ -1029,6 +1161,7 @@ function TSXTranscript( tsxDoc ){
 
 			$(".tsx-tei-insert").on("click",function(){			
 				self.cm.replaceSelection(self.tei[$(this).attr("id")].insert);
+				self.cm.focus();
 			});
 			//wrap TEI tags around selected content
 			$(".tsx-tei-wrap").on("click",function(){
@@ -1042,6 +1175,7 @@ function TSXTranscript( tsxDoc ){
 					close = open.replace(/^</, "</");
 				}
 				self.cm.replaceSelection(open+text+close);
+				self.cm.focus();
 			});
 
 			
@@ -1078,11 +1212,12 @@ function TSXTranscript( tsxDoc ){
 
 		});
 	}
-	this.validateXML = function (str){
+	this.validateXML = function (str, no_moan){
 		try{
 			$.parseXML("<div>"+str+"</div>");
 			return true;
 		} catch(err){
+			if(no_moan) return false;
 			console.log("Invalid XML in transcript: "+err);
 			err_str = err+'';
 			BootstrapDialog.show({
@@ -1092,6 +1227,71 @@ function TSXTranscript( tsxDoc ){
             });     
 			return false;
 		}
+	}
+	this.render_wysiwyg = function(){
+	//	console.log("Here");
+		$("#tsx-w-transcript-editor").height(50);
+		new Medium({
+                	element: document.getElementById('tsx-w-transcript-editor'),
+			mode: Medium.richMode
+            	});	
+
+/*		(function(){
+	var article = document.getElementById('rich_with_invoke_element'),
+		container = article.parentNode,
+	    medium = new Medium({
+	        element: article,
+	        mode: Medium.richMode,
+	        placeholder: 'Your Article',
+	        attributes: null,
+	        tags: null,
+		    pasteAsText: false
+	    });
+
+		article.highlight = function() {
+		if (document.activeElement !== article) {
+			medium.select();
+		}
+	};
+
+
+	container.querySelector('.bold').onmousedown = function() {
+		article.highlight();
+		medium.invokeElement('b', {
+		    title: "I'm bold!",
+		    style: "color: #66d9ef"
+	    });
+		return false;
+	};
+
+	container.querySelector('.underline').onmousedown = function() {
+		article.highlight();
+		medium.invokeElement('u', {
+			title: "I'm underlined!",
+			style: "color: #a6e22e"
+		});
+		return false;
+	};
+
+	container.querySelector('.italic').onmousedown = function() {
+		article.highlight();
+		medium.invokeElement('i', {
+			title: "I'm italics!",
+			style: "color: #f92672"
+		});
+		return false;
+	};
+
+	container.querySelector('.strike').onmousedown = function() {
+		article.highlight();
+		medium.invokeElement('strike', {
+			title: "I've been struck!",
+			style: "color: #e6db74"
+		});
+		return false;
+	};
+})();
+*/
 	}
 	this.render_preview = function(){
 		var tei = self.render_tei(self.cm.getDoc().getValue());	
@@ -1114,16 +1314,17 @@ function TSXTranscript( tsxDoc ){
 			//replace(/<hi/g, "<span").
 			//replace(/<\/hi/g,"</span").
 			replace(/<([^\/][^(hi)>]+)/g, '<span class="tei-$1"').
-			replace(/<hi rend="/,"<span class=\"tei-").
+			replace(/<hi rend="/g,"<span class=\"tei-").
 			replace(/<\/[^>]+/g, '</span').
 			replace(/\n/g,"<br/>");
 
-		console.log(rendered);
+		//console.log(rendered);
 		return rendered;
 		//need to use a bona fide tei xslt here, but first attempts failed miserably so replaces and css...
 	}
 	this.draw_polygon = function(textLine, line){
 		var svg_str = self.coords_to_svg($(" > Coords",textLine).attr("points"));
+		
 		//TODO proper consistent references (names and value syntax)
 		var line_ref = $(textLine).attr("id");
 		var page_ref = $(textLine).parents("Page").attr("imageFilename").replace(/\.jpg$/,""); 
@@ -1139,7 +1340,8 @@ function TSXTranscript( tsxDoc ){
 		poly.line_index  = line;
 		poly.rec = self.get_poly_limits($(" > Coords",textLine).attr("points"));
 				
-		poly.mouseup(function(e){		
+		poly.mouseup(function(e){
+		
 			self.go_to_line(this, line);
 			self.cm.setCursor(line);
 			self.cm.focus();
@@ -1262,7 +1464,7 @@ function TSXHTR( tsxTranscript ){
 			line_ref = self.get_line_ref();
 		}
 		var url = $("> nBestUrl", self.wordgraphs[line_ref]).text();
-		console.log("wordgrpahs here: ", $("> nBestUrl", self.wordgraphs[line_ref]).text());
+		//console.log("wordgrpahs here: ", $("> nBestUrl", self.wordgraphs[line_ref]).text());
 		self.load_xml(url, self.handle_suggestions, {line_ref: line_ref, num_words: num_words});
 	}	
 	this.get_full_line_ref = function(){
