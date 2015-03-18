@@ -24,6 +24,7 @@ function TSX(config){
 		this.set_options(config);	
 //		console.log("Base init");
 		self.a = "base thing";
+		self.init_GA();
 	}
 	this.set_options = function(config){
 		//set any unset options that have defaults	
@@ -57,7 +58,7 @@ function TSX(config){
 	}
 
 	this.rest = function(url, data, callback, dataType, type, args, postfile){
-	
+			
 		var params = {crossDomain: true, xhrFields: {withCredentials: true}};
 		if(type != undefined) //default to GET
 			params.type = type;
@@ -105,6 +106,29 @@ function TSX(config){
 //			$("#connection_message").remove();
 		});
 	};
+	this.init_GA = function(){
+		//need to do this from proper url not my faje dev one
+	/*	
+  		(function(i,s,o,g,r,a,m){
+			i['GoogleAnalyticsObject']=r;
+			i[r]=i[r]||function(){
+			  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+			  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  			})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+*/
+//:		console.log("Send pageview to GA");
+//  		ga('create', 'UA-60990649-1', 'auto');
+  //		ga('send', 'pageview');
+
+	}
+	this.log_action = function(){
+		//push some metrics to GA
+		//two broad types of metric:
+			// system (for performance monitoring, ajax requests etc) 
+			// user (To track user interaction with TSX, build a narrative of TSX use)
+
+		
+	}
 	this.init(config);
 }
 
@@ -211,16 +235,24 @@ function TSXPage( ){
 	}
 
 	this.load_thumbnails = function(data){
-//		console.log(data);
-		var pages = data.pageList.pages;
+		console.log(data);
+		//rubbish code alert
+		if(data.pageList == undefined){ //assume that means we've got an xml object
+			console.log(xml2json(data).replace(/undefined/,""));
+			var pages = $.parseJSON(xml2json(data).replace(/undefined/,""));
+			//console.log(pages);
+		}else{
+			var pages = data.pageList.pages;
+		}
 		self.unload_thumbnails();
 		for(var i in pages){
-//			console.log(self.pages[pages[i]]);		
+			console.log(pages[i]);		
 			var thumb = '<div class="tsx-thumbbox col-sm-6 col-md-3">'+
 				'<a href="./transcribe#'+self.col_ref+'/'+pages[i].docId+'/'+pages[i].pageNr+'" class="thumbnail">'+
-					'<img src="'+pages[i].thumbUrl+'" alt="Tumbnail for '+pages[i].thumbUrl+'"/>'+
-					' <div class="caption">Page '+pages[i].pageNr+' ('+self.humanise(pages[i].tsList.transcripts[0].status)+')</div>'+
-				'</a>'+
+					'<img src="'+pages[i].thumbUrl+'" alt="Tumbnail for '+pages[i].thumbUrl+'"/>';
+					if(pages[i].tsList != undefined)
+					thumb = thumb + ' <div class="caption">Page '+pages[i].pageNr+' ('+self.humanise(pages[i].tsList.transcripts[0].status)+')</div>';
+				thumb = thumb + '</a>'+
 			'</div>';
 			$("#tsx-thumb-panel > .container-fluid > .row").append(thumb);
 		}
@@ -281,8 +313,14 @@ function TSXUser( ){
 	*/
 	this.recent_activity = function(){
 		console.log(self.userdata);
-		for(var i in self.userdata.collectionList.colList){
-			var col = self.userdata.collectionList.colList[i];
+		//might be an array, might be an object... sigh
+		var collections = self.userdata.collectionList.colList;
+		if(typeof self.userdata.collectionList.colList == "object")
+			collections = [ self.userdata.collectionList.colList];
+		for(var i in collections){
+			
+			var col = collections[i];
+			console.log(col);
 			var url = self.data_server+"collections/"+col.colId+"/recent";
 			console.log(url);	
 			//TODO make load_thumbnails more generic and promote it to TSXPage
