@@ -8,6 +8,7 @@ $menu[$knowthyself] = 'class="active"';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TSX</title>
 
+
     <!-- general css libs -->
     <link href="<?php print $TSX_root; ?>/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?php print $TSX_root; ?>/css/bootstrap-dialog.css" rel="stylesheet">
@@ -51,7 +52,20 @@ switch($knowthyself){
 	<script src="<?php print $TSX_root; ?>/js/xml2json.js"></script>
     <script src='https://www.google.com/recaptcha/api.js'></script> 
 
-<script>
+<!-- GA -->
+<script type="text/javascript">
+/*
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-61018046-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+*/
+
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
   m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
@@ -60,7 +74,11 @@ switch($knowthyself){
   ga('create', 'UA-61018046-1', 'auto');
   ga('send', 'pageview');
 
+
 </script>
+
+<!-------->
+
 	<?php
 //Load the appropriate js (nodejs and require would be preferable...)
 switch($knowthyself){

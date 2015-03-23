@@ -20,6 +20,8 @@ function TSX(config){
 	this.name ="TSX";
 	//set default options here:
 	self.defaults = {};
+	var userdata;
+	var startTime = new Date().getTime();	
 	this.init = function(config){
 		this.set_options(config);	
 //		console.log("Base init");
@@ -108,20 +110,16 @@ function TSX(config){
 	};
 	this.init_GA = function(){
 		//need to do this from proper url not my faje dev one
-	/*	
-  		(function(i,s,o,g,r,a,m){
-			i['GoogleAnalyticsObject']=r;
-			i[r]=i[r]||function(){
-			  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-			  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  			})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-*/
-//:		console.log("Send pageview to GA");
-//  		ga('create', 'UA-60990649-1', 'auto');
-  //		ga('send', 'pageview');
 
 	}
-	this.log_action = function(){
+	this.log_action = function(action, label, value){
+		//we just log when relative to the (TSX page) session start a thing happens
+		// and hope we can get a sense of time user spent on action from GA reports.
+		var elapsed = new Date().getTime() - self.startTime; 
+		console.log(self.userdata);
+		ga("send", "timing", self.userdata.userId, action, elapsed, label);
+		ga("send", "event", self.userdata.userId, action, label, value);
+
 		//push some metrics to GA
 		//two broad types of metric:
 			// system (for performance monitoring, ajax requests etc) 
@@ -129,6 +127,25 @@ function TSX(config){
 
 		
 	}
+	this.update_login_state = function(){
+		if($.cookie("TSX_session") != undefined){
+			//console.log($.cookie("TSX_session"));
+			$(".tsx-not-logged-in").hide();
+			console.log(localStorage.userdata);
+			self.userdata = $.parseJSON(localStorage.userdata).trpUserLogin;
+			var possessive = "'s";
+			if(self.userdata.firstname.slice(-1) === "s") possessive = "'"; //Just in case Chris Morris or Optimus Prime sign up
+			$("ul#tsx-salutation > li > a").html(self.userdata.firstname+possessive+" TSX");
+			$("ul#tsx-salutation").show();
+			$(".tsx-logged-in").show();
+		}else{
+			$(".tsx-logged-in").hide();
+			$("ul#tsx-salutation").hide();
+			$(".tsx-not-logged-in").show();
+	
+		}	
+	}
+
 	this.init(config);
 }
 
@@ -288,6 +305,7 @@ function TSXUser( ){
 		}
 		
 	}
+/*
 	this.update_login_state = function(){
 		if($.cookie("TSX_session") != undefined){
 			//console.log($.cookie("TSX_session"));
@@ -306,6 +324,7 @@ function TSXUser( ){
 	
 		}	
 	}
+*/
 	/*
 	this.handle_user = function(data){
 		console.log(data);
@@ -960,13 +979,22 @@ function TSXTranscript( tsxDoc ){
   			Enter: "goLineDown" ,
 			"Ctrl-Enter": function(cm){ cm.replaceSelection("\n"); },
 			Tab: function(cm){ 
+	  			self.log_action('Word Suggestion Requested');
 				self.tsxHTR.get_HTR_data(undefined, 1);
 				//console.log("tab pressed");
 			},
 			"Shift-Tab": function(cm){ 
 				self.tsxHTR.get_HTR_data(undefined);
 				console.log("tab pressed");
+				self.log_action("Line Suggestion Requested");
+
 			}
+		});
+	}
+	this.init_event_tracking = function(){
+		self.cm.on("focus", function(){
+  			self.log_action("Edit area focus");
+
 		});
 	}
 	this.unload_transcript = function(){
@@ -1525,6 +1553,19 @@ function TSXHTR( tsxTranscript ){
 		var top_match = [];
 		// next matches don't
 		var next_match = [];
+		var line_start = false;
+		var line_end = false;
+		var lines = [];
+		for(var i in sug.lines){
+			if(sug.lines[i].match(/^(#|"|\/\/\/)/)) continue;
+			var sug_array = sug.lines[i].split(/\s+/);
+			if(sug_array[3] === "<s>") line_start = true;
+			if(sug_array[3] === "</s>") line_end = true;
+			
+//			var sug_line = sug.lines[i].replace(/^.*<s>\s*(.*)<\/s>.*$/, '$1');
+		
+		}
+/*
 		for(var i in sug.lines){
 		//	console.log(sug.lines[i]);
 			var sug_line = sug.lines[i].replace(/^.*<s>\s*(.*)<\/s>.*$/, '$1');
@@ -1550,6 +1591,7 @@ function TSXHTR( tsxTranscript ){
 				}
 			}
 		}
+*/
 		//turns out $.unqiue is only ment for DOM elements...!
 		var matches = self.removeDupes(top_match.concat(next_match));
 //		console.log("matches", matches);
@@ -1557,9 +1599,11 @@ function TSXHTR( tsxTranscript ){
 		if(matches.length == 0) {
 			tsxTranscript.lock.blockUI("Sorry, no suggestions");
 			setTimeout(tsxTranscript.lock.unblockUI, 1000);
+		  	self.log_action('No Suggestions');
 			return false;
 		}
   		var inner = {from: cm.getCursor(), to: cm.getCursor(), list: matches};
+	  	self.log_action("Suggestion delivered");
   		return inner;
 	}
 	
