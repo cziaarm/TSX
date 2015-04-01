@@ -1543,7 +1543,7 @@ function TSXHTR( tsxTranscript ){
 		return tsxTranscript.cm.getLine(tsxTranscript.cm.getCursor().line);
 	}
 
-	this.suggestions = function(cm, sug) {
+	this.suggestions = function(cm, sug_data) {
 
 		var edit_line = self.get_line();
 		var edit_re = new RegExp('^'+edit_line+'(.*)');
@@ -1554,17 +1554,46 @@ function TSXHTR( tsxTranscript ){
 		// next matches don't
 		var next_match = [];
 		var line_start = false;
-		var line_end = false;
 		var lines = [];
-		for(var i in sug.lines){
-			if(sug.lines[i].match(/^(#|"|\/\/\/)/)) continue;
-			var sug_array = sug.lines[i].split(/\s+/);
+		var sug_words = [];
+		for(var i in sug_data.lines){
+			if(sug_data.lines[i].match(/^(#|"|\/\/\/)/)) continue;
+			var sug_array = sug_data.lines[i].split(/\s+/);
+			if(sug_array[3] === "</s>"){
+				line_start = false;
+				sug_line = sug_words.join(" ");
+				if(edit_re.test(sug_line)){
+					//console.log("Match", sug_line);
+					var match_str = RegExp.$1;
+					//only return num_words words
+					if(sug_data.num_words != undefined)
+						match_str = match_str.split(/\s+/).slice(0,sug_data.num_words).join(" ");
+									
+					top_match.push(match_str);
+				}else{
+					//imperfect way of getting what we think the remainder of the suggestion is
+					var remains = sug_words.slice(last_word_ind).join(" ");
+					var last_word_re = new RegExp('^'+edit_words[last_word_ind]+'(.*)');
+					if(last_word_re.test(remains)){
+						match_str = RegExp.$1;
+						if(sug_data.num_words != undefined)	
+							match_str = match_str.split(/\s+/).slice(0,sug_data.num_words).join(" ");
+
+						next_match.push(match_str);
+					}
+				}
+
+
+				//lines.push({words: words, line: line});
+				sug_words = [];
+			}
+
+			if(line_start) sug_words.push(sug_array[3]);
+
 			if(sug_array[3] === "<s>") line_start = true;
-			if(sug_array[3] === "</s>") line_end = true;
-			
-//			var sug_line = sug.lines[i].replace(/^.*<s>\s*(.*)<\/s>.*$/, '$1');
-		
+					
 		}
+		console.log(lines);
 /*
 		for(var i in sug.lines){
 		//	console.log(sug.lines[i]);
@@ -1606,7 +1635,6 @@ function TSXHTR( tsxTranscript ){
 	  	self.log_action("Suggestion delivered");
   		return inner;
 	}
-	
 	this.handle_suggestions = function(data, args){
 		var sug_lines = data.split(/\n/);
 		var edit_line = self.get_line();
