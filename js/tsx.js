@@ -22,11 +22,17 @@ function TSX(config){
 	self.defaults = {};
 	var userdata;
 	var startTime = new Date().getTime();	
+
+
+	var col_ref;
+	var doc_ref;
+	var page_ref;
+
 	this.init = function(config){
 		this.set_options(config);	
 //		console.log("Base init");
 		self.a = "base thing";
-		self.init_GA();
+		//self.init_GA();
 	}
 	this.set_options = function(config){
 		//set any unset options that have defaults	
@@ -48,11 +54,50 @@ function TSX(config){
 		self.rest(url, null, callback, "json", "GET", args);
 	}
 	this.post_data = function(url, data, callback, args){
-		console.log("posting data");
 		self.rest(url, data, callback, "xml", "POST", args);
 	}
 	this.save_xml = function(url, data, callback, args){
-		self.rest(url, data, callback, "xml", "POST", args, true);
+		//self.rest(url, data, callback, "xml", "POST", args, true);
+		//let's take control of this particular request as it is a rather important one....
+
+		$.ajax(url+"?JSESSIONID=994C4B930664267778D445C8A6AA5862",
+			{
+				type: 'POST',
+				crossDomain: true, 
+				xhrFields: {withCredentials: true},
+				dataType: 'text',
+			   	contentType: 'application/xml',
+//			   	contentType: false,
+				processData: false,
+				data: xmlToString(data)
+			}).
+			done(function(data, textStatus, jqxhr){
+				callback(data, args);
+			}).
+			fail(function(jqxhr,textStatus,error){
+				if(error === "Unauthorized"){
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_WARNING,
+						title: "Session expired?",
+						message: "<p>It seems that your TRP session has expired.</p>",
+						buttons: [{label: 'OK',
+								action: function(dialogItself){
+									dialogItself.close();
+								}
+						}]		
+					});	
+					$.removeCookie("TSX_session");
+					$("body").trigger('cookieUpdate');
+				}
+				var err = textStatus + ", " + error;
+				console.log( "**Request to "+url+" Failed: " + err );
+				callback(false, args);
+			}).
+			always(function(){
+	//			$("#connection_message").remove();
+			});
+
+
 	}
 
 	this.save_json = function(url, data, callback, args){
@@ -73,7 +118,7 @@ function TSX(config){
 		}
 		params.data = data;
 		if(postfile){
-			console.log("Setting contentType to false");
+//			console.log("Setting contentType to false",params.contentType);
 			params.processData = false;
 			params.contentType = false;
 		}
@@ -82,8 +127,8 @@ function TSX(config){
 		console.log(url, params);
 		$.ajax(url, params ).
 		done(function(data, textStatus, jqxhr){
-			//console.log("rest is done");
-			callback(data, args);
+			if(callback != undefined)
+				callback(data, args);
 		}).
 		fail(function(jqxhr,textStatus,error){
 			if(error === "Unauthorized"){
@@ -111,22 +156,34 @@ function TSX(config){
 	this.init_GA = function(){
 		//need to do this from proper url not my faje dev one
 
-	}
-	this.log_action = function(action, label, value){
+	};
+	this.log_action = function(action, line_no, line_ref, text){
 		//we just log when relative to the (TSX page) session start a thing happens
 		// and hope we can get a sense of time user spent on action from GA reports.
-		var elapsed = new Date().getTime() - self.startTime; 
+/*		var elapsed = new Date().getTime() - self.startTime; 
 		console.log(self.userdata);
 		ga("send", "timing", self.userdata.userId, action, elapsed, label);
 		ga("send", "event", self.userdata.userId, action, label, value);
-
+*/
+		var text_length;
+		if(text != undefined) text_length = text.length;
+		self.post_data("/TSX/metrics.php",{session: $.cookie("TSX_session"),
+						label: action, 
+						timestamp: Date.now(), 
+						user_id: self.userdata.userId,
+						document_ref: self.doc_ref,
+						page_ref: self.page_ref,
+						line_length: text_length,
+						line_number: line_no,
+						line_ref: line_ref,
+						text: text});
 		//push some metrics to GA
 		//two broad types of metric:
 			// system (for performance monitoring, ajax requests etc) 
 			// user (To track user interaction with TSX, build a narrative of TSX use)
 
 		
-	}
+	};
 	this.update_login_state = function(){
 		if($.cookie("TSX_session") != undefined){
 			//console.log($.cookie("TSX_session"));
@@ -134,7 +191,7 @@ function TSX(config){
 			console.log(localStorage.userdata);
 			self.userdata = $.parseJSON(localStorage.userdata).trpUserLogin;
 			var possessive = "'s";
-			if(self.userdata.firstname.slice(-1) === "s") possessive = "'"; //Just in case Chris Morris or Optimus Prime sign up
+			if(self.userdata.firstname != undefined && self.userdata.firstname.slice(-1) === "s") possessive = "'"; //Just in case Chris Morris or Optimus Prime sign up
 			$("ul#tsx-salutation > li > a").html(self.userdata.firstname+possessive+" TSX");
 			$("ul#tsx-salutation").show();
 			$(".tsx-logged-in").show();
@@ -144,6 +201,22 @@ function TSX(config){
 			$(".tsx-not-logged-in").show();
 	
 		}	
+	}
+
+	this.set_refs = function(){
+		self.ref_array = [];
+		self.ref_array = window.location.hash.replace(/^#/, "").split('/');
+
+		if(self.ref_array[0] != undefined) self.col_ref = self.ref_array[0];
+		if(self.ref_array[1] != undefined) self.doc_ref = self.ref_array[1];
+		if(self.ref_array[2] != undefined) self.page_ref = self.ref_array[2];
+/*
+		console.log("COL REF: "+self.col_ref);
+		console.log("DOC REF: "+self.doc_ref);
+		console.log("PAGE REF: "+self.page_ref);
+		
+		console.log(self.ref_array);
+*/	
 	}
 
 	this.init(config);
@@ -166,21 +239,6 @@ function TSXPage( ){
 		self.init_edit_panel();	
 		self.init_file_panel();	
 		self.init_thumb_panel();
-	}
-	this.set_refs = function(){
-		self.ref_array = [];
-		self.ref_array = window.location.hash.replace(/^#/, "").split('/');
-
-		if(self.ref_array[0] != undefined) self.col_ref = self.ref_array[0];
-		if(self.ref_array[1] != undefined) self.doc_ref = self.ref_array[1];
-		if(self.ref_array[2] != undefined) self.page_ref = self.ref_array[2];
-/*
-		console.log("COL REF: "+self.col_ref);
-		console.log("DOC REF: "+self.doc_ref);
-		console.log("PAGE REF: "+self.page_ref);
-		
-		console.log(self.ref_array);
-*/	
 	}
 	this.init_image_panel = function(){	
 		if(self.image_panel == undefined) return false;
@@ -386,7 +444,8 @@ function TSXUser( ){
 					if($("trpUserLogin > firstname",data).length != 0) greeting = $("trpUserLogin > firstname",data).text();
 					console.log(data);
 					localStorage['userdata'] = xml2json(data).replace(/undefined/,""); //xml2json sticks a random undefined in at start of object
- 					
+ 					self.log_action('User signed in');
+
 					BootstrapDialog.show({
 						type: BootstrapDialog.TYPE_SUCCESS,
 						title: "Login successful",
@@ -535,11 +594,13 @@ function TSXUser( ){
 					buttons: [{label: 'OK',
 							action: function(dialogItself){
 								self.post_data(self.data_server+"auth/logout", {},  function(data){
+						  			self.log_action('User signed out');
 									$.removeCookie("TSX_session");
 									$("body").trigger('cookieUpdate');
 									dialogItself.close();
 									self.update_login_state();
 									$("body").trigger('cookieUpdate');
+
 								});
 							}
 						},
@@ -979,23 +1040,66 @@ function TSXTranscript( tsxDoc ){
   			Enter: "goLineDown" ,
 			"Ctrl-Enter": function(cm){ cm.replaceSelection("\n"); },
 			Tab: function(cm){ 
-	  			self.log_action('Word Suggestion Requested');
+	  			self.log_action('Word Suggestion Requested',self.get_line(), self.get_line_ref(), self.get_line_text());
 				self.tsxHTR.get_HTR_data(undefined, 1);
 				//console.log("tab pressed");
 			},
 			"Shift-Tab": function(cm){ 
 				self.tsxHTR.get_HTR_data(undefined);
-				console.log("tab pressed");
-				self.log_action("Line Suggestion Requested");
+				self.log_action("Line Suggestion Requested",self.get_line(), self.get_line_ref(), self.get_line_text());
 
+			},
+			//Maintain layout lines in edit area (as we can not change these)
+  			Backspace:  function(cm){ 
+				var cur = cm.getCursor();
+				//backspace from start of line? no
+				if(cur.ch == 0){
+					cm.execCommand("goLineUp");
+					cm.execCommand("goLineEnd");
+				}else{
+					if(cm.somethingSelected())
+						cm.replaceSelection(""); 
+					else
+						cm.replaceRange("", {line: cur.line, ch: (cur.ch-1)}, {line: cur.line, ch: cur.ch} ); 
+
+				}
+			},
+  			"Delete":  function(cm){ 
+				var cur = cm.getCursor();
+				//delete from end of line? no
+				if(cur.ch == cm.lineInfo(cur.line).text.length){
+					cm.execCommand("goLineDown");
+					cm.execCommand("goLineStart");
+				}else{
+					if(cm.somethingSelected())
+						cm.replaceSelection(""); 
+					else
+						cm.replaceRange("", {line: cur.line, ch: cur.ch}, {line: cur.line, ch: (cur.ch+1)} ); 
+				}
 			}
+
 		});
+		self.init_event_tracking();
 	}
+	//track uncomplicated codeMirror events....
 	this.init_event_tracking = function(){
 		self.cm.on("focus", function(){
-  			self.log_action("Edit area focus");
+  			self.log_action("Edit area focus",self.get_line(), self.get_line_ref(), self.get_line_text());
 
 		});
+		self.cm.on("blur", function(){
+  			self.log_action("Edit area blur",self.get_line(), self.get_line_ref(), self.get_line_text());
+
+		});
+		//signalled by show-hint
+		self.cm.on("endCompletion", function(){
+  			self.log_action("Sugeestion selected",self.get_line(), self.get_line_ref(), self.get_line_text());
+		});
+
+		$(window).on("unload", function(){
+			self.log_action('User left page');
+		});
+
 	}
 	this.unload_transcript = function(){
 		
@@ -1074,6 +1178,8 @@ function TSXTranscript( tsxDoc ){
 		
 		self.init_buttons();
 		
+		self.log_action("Transcript Loaded");
+		
 		//store the code mirror object in the raphael data for access in the TSXDocument
 		tsxDoc.poly_set.data({cm:self.cm});
 		//set image hover highlighting
@@ -1091,7 +1197,7 @@ function TSXTranscript( tsxDoc ){
 				self.go_to_line(self.polys[line], line);
 			//}
 		});
-		
+			
 		//we will automagically keep the ampersands in line
 		self.cm.on("change", function(cm, changeObj){
 			var new_text = changeObj.text[0]; //not sure what situation would cause more than one item in this array			
@@ -1114,7 +1220,7 @@ function TSXTranscript( tsxDoc ){
 				//set preview
 				self.render_tei("");
 				tsxDoc.reset_view();
-
+  				self.log_action("Clear transcript - edit area",self.get_line(), self.get_line_ref(), self.get_line_text());
 			}else{
 				self.cm.setValue(self.text);
 				var i=0;// This is why!!
@@ -1127,6 +1233,7 @@ function TSXTranscript( tsxDoc ){
 				$(button).attr("title","Clear transcript").find("span").removeClass("glyphicon-list-alt").addClass("glyphicon-file");
 				//set preview
 				self.render_tei(self.text);
+  				self.log_action("Load transcript - edit area",self.get_line(), self.get_line_ref(), self.get_line_text());
 			}
 			//TODO work out what happens when this is used mid-edit...?!
 			self.cm.markClean();
@@ -1136,6 +1243,7 @@ function TSXTranscript( tsxDoc ){
 		});
 		$("#tsx-save-tei").on("click", function(){
 			if(!self.cm.isClean()){ // any change whatsoever
+  				self.log_action("User save requested",self.get_line(), self.get_line_ref(), self.get_line_text());
 				var errors = false;
 				var open_tei = [];
 				self.cm.eachLine(function(cm_line){
@@ -1161,9 +1269,11 @@ function TSXTranscript( tsxDoc ){
 						}
 					}
 					//check xml validity
+
+					//not sure we need this as codemirror(?) may have already escaped bad xml
 					if(self.validateXML(cm_line.text)){
 							
-							
+						console.log("Valid: "+cm_line.text);
 						
 						line_index = lineObj.line;
 						from_xml = $("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).html();
@@ -1199,16 +1309,30 @@ function TSXTranscript( tsxDoc ){
 			if(!errors){
 				console.log(self.xmlData);
 				var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/text";
+  				self.log_action("XML valid",self.get_line(), self.get_line_ref(), self.get_line_text());
+
 				self.save_xml(url,self.xmlData, function(data){
 					console.log(data);
-					BootstrapDialog.show({
-						type: BootstrapDialog.TYPE_SUCCESS,
-						title: "Saved Transcript",
-						message: "<p>Transcript changes have been saved.</p>"
-					});
+					if(!data){
+						BootstrapDialog.show({
+							type: BootstrapDialog.TYPE_DANGER,
+							title: "Transcript not saved!",
+							message: "<p>We have an issue and transcript changes have not been saved.</p>"
+						});
+		  				self.log_action("XML save error",self.get_line(), self.get_line_ref(), self.get_line_text())
+					}else{
+						BootstrapDialog.show({
+							type: BootstrapDialog.TYPE_SUCCESS,
+							title: "Saved Transcript",
+							message: "<p>Transcript changes have been saved.</p>"
+						});
+		  				self.log_action("XML saved",self.get_line(), self.get_line_ref(), self.get_line_text());
+					}
 				});
 				
-				}
+			}else{
+
+			}
 		});
 	}
 	
@@ -1228,6 +1352,7 @@ function TSXTranscript( tsxDoc ){
 			$(".tsx-tei-insert").on("click",function(){			
 				self.cm.replaceSelection(self.tei[$(this).attr("id")].insert);
 				self.cm.focus();
+				self.log_action($(this).attr("id"),self.get_line(), self.get_line_ref(), self.get_line_text());
 			});
 			//wrap TEI tags around selected content
 			$(".tsx-tei-wrap").on("click",function(){
@@ -1242,10 +1367,11 @@ function TSXTranscript( tsxDoc ){
 				}
 				self.cm.replaceSelection(open+text+close);
 				self.cm.focus();
+				self.log_action($(this).attr("id"),self.get_line(), self.get_line_ref(), self.get_line_text());
 			});
 
 			
-			$("#tsx-tei-underscore").on("click", self.do_tei);
+//			$("#tsx-tei-underscore").on("click", self.do_tei);
 		
 		
 /*		$("#tsx-suggest-word").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_word);});
@@ -1407,15 +1533,23 @@ function TSXTranscript( tsxDoc ){
 		poly.rec = self.get_poly_limits($(" > Coords",textLine).attr("points"));
 				
 		poly.mouseup(function(e){
-		
+				
 			self.go_to_line(this, line);
 			self.cm.setCursor(line);
 			self.cm.focus();
+			self.log_action("Image clicked",self.get_line(), self.get_line_ref(), self.get_line_text());
+
 		});
 		tsxDoc.poly_set.push(poly.attr({"stroke":"none", "fill":"white", opacity: 0}));	
 		return poly;
 	}
 	this.go_to_line = function(poly, line){
+		//line not changed... no action	
+		if(line == self.current_line)
+			return false;
+	  	
+		self.log_action("Line change",self.get_line(), self.get_line_ref(), self.get_line_text());
+
 		if(poly == undefined) return;
 //		if(poly.line_ref != undefined) self.tsxHTR.do_HTR(poly.full_line_ref);
 		if(tsxDoc.zoom_flag){
@@ -1447,7 +1581,7 @@ function TSXTranscript( tsxDoc ){
 		poly.unhover();
 		poly.attr({opacity:"0.35", stroke: "grey"});
 		self.cm.addLineClass(line, "text", "tsx-line-selected");
-
+		self.current_line = line;
 	}
 	this.coords_to_svg = function(coords){
 		
@@ -1471,6 +1605,18 @@ function TSXTranscript( tsxDoc ){
 		return rec;
 	}
 	
+	this.get_full_line_ref = function(){
+		return self.polys[self.cm.getCursor().line].full_line_ref;
+	}
+	this.get_line_ref = function(){
+		return self.polys[self.cm.getCursor().line].line_ref;
+	}
+	this.get_line = function(){
+		return self.cm.getCursor().line;
+	}
+	this.get_line_text = function(){		
+		return self.cm.lineInfo(self.cm.getCursor().line).text;
+	}
 	
 	self.init();
 }
@@ -1533,19 +1679,23 @@ function TSXHTR( tsxTranscript ){
 		//console.log("wordgrpahs here: ", $("> nBestUrl", self.wordgraphs[line_ref]).text());
 		self.load_xml(url, self.handle_suggestions, {line_ref: line_ref, num_words: num_words});
 	}	
+
 	this.get_full_line_ref = function(){
-		return tsxTranscript.polys[tsxTranscript.cm.getCursor().line].full_line_ref;
+		return tsxTranscript.get_full_line_ref();
 	}
 	this.get_line_ref = function(){
-		return tsxTranscript.polys[tsxTranscript.cm.getCursor().line].line_ref;
+		return tsxTranscript.get_line_ref();
 	}
 	this.get_line = function(){
-		return tsxTranscript.cm.getLine(tsxTranscript.cm.getCursor().line);
+		return tsxTranscript.get_line();
 	}
-
+	this.get_line_text = function(){
+		return tsxTranscript.get_line_text();
+	}
+	
 	this.suggestions = function(cm, sug_data) {
 
-		var edit_line = self.get_line();
+		var edit_line = self.get_line_text();
 		var edit_re = new RegExp('^'+edit_line+'(.*)');
 		var edit_words = edit_line.split(/\s+/);
 		var last_word_ind = edit_words.length-1;
@@ -1628,16 +1778,20 @@ function TSXHTR( tsxTranscript ){
 		if(matches.length == 0) {
 			tsxTranscript.lock.blockUI("Sorry, no suggestions");
 			setTimeout(tsxTranscript.lock.unblockUI, 1000);
-		  	self.log_action('No Suggestions');
+		  	self.log_action('No Suggestions',self.get_line(), self.get_line_ref(), self.get_line_text());
 			return false;
 		}
   		var inner = {from: cm.getCursor(), to: cm.getCursor(), list: matches};
-	  	self.log_action("Suggestion delivered");
+		if(sug_data.num_words != undefined)
+		  	self.log_action("Word suggestions delivered",self.get_line(), self.get_line_ref(), self.get_line_text());
+		else
+			self.log_action("Line suggestions delivered",self.get_line(), self.get_line_ref(), self.get_line_text());
+
   		return inner;
 	}
 	this.handle_suggestions = function(data, args){
 		var sug_lines = data.split(/\n/);
-		var edit_line = self.get_line();
+		var edit_line = self.get_line_text();
 		CodeMirror.showHint(tsxTranscript.cm, self.suggestions, {lines: sug_lines, num_words: args.num_words});
 	}
 	//poss a utility
@@ -1710,4 +1864,16 @@ $.fn.serializeObject = function()
     });
     return o;
 };
+function xmlToString(xmlData) { 
 
+    var xmlString;
+    //IE
+    if (window.ActiveXObject){
+        xmlString = xmlData.xml;
+    }
+    // code for Mozilla, Firefox, Opera, etc.
+    else{
+        xmlString = (new XMLSerializer()).serializeToString(xmlData);
+    }
+    return xmlString;
+}   
