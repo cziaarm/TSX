@@ -56,20 +56,14 @@ function TSX(config){
 	this.post_data = function(url, data, callback, args){
 		self.rest(url, data, callback, "xml", "POST", args);
 	}
-	this.save_xml = function(url, data, callback, args){
-		//self.rest(url, data, callback, "xml", "POST", args, true);
-		//let's take control of this particular request as it is a rather important one....
+	this.save_xml_via_proxy = function(url, proxy_data, data, callback, args){
+		proxy_data.session =  $.cookie("TSX_session");
+		proxy_data.xml =  xmlToString(data);
 
-		$.ajax(url+"?JSESSIONID=994C4B930664267778D445C8A6AA5862",
+		$.ajax(url,
 			{
 				type: 'POST',
-				crossDomain: true, 
-				xhrFields: {withCredentials: true},
-				dataType: 'text',
-			   	contentType: 'application/xml',
-//			   	contentType: false,
-				processData: false,
-				data: xmlToString(data)
+				data: proxy_data
 			}).
 			done(function(data, textStatus, jqxhr){
 				callback(data, args);
@@ -98,6 +92,11 @@ function TSX(config){
 			});
 
 
+	}
+
+	this.save_xml = function(url, data, callback, args){
+		//self.rest(url, data, callback, "xml", "POST", args, true);
+		//let's take control of this particular request as it is a rather important one....
 	}
 
 	this.save_json = function(url, data, callback, args){
@@ -167,10 +166,13 @@ function TSX(config){
 */
 		var text_length;
 		if(text != undefined) text_length = text.length;
+		var userId
+		if(self.userdata != undefined) userId = self.userdata.userId;
+
 		self.post_data("/TSX/metrics.php",{session: $.cookie("TSX_session"),
 						label: action, 
 						timestamp: Date.now(), 
-						user_id: self.userdata.userId,
+						user_id: userId,
 						document_ref: self.doc_ref,
 						page_ref: self.page_ref,
 						line_length: text_length,
@@ -1273,7 +1275,7 @@ function TSXTranscript( tsxDoc ){
 					//not sure we need this as codemirror(?) may have already escaped bad xml
 					if(self.validateXML(cm_line.text)){
 							
-						console.log("Valid: "+cm_line.text);
+//						console.log("Valid: "+cm_line.text);
 						
 						line_index = lineObj.line;
 						from_xml = $("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).html();
@@ -1309,10 +1311,17 @@ function TSXTranscript( tsxDoc ){
 			if(!errors){
 				console.log(self.xmlData);
 				var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/text";
-  				self.log_action("XML valid",self.get_line(), self.get_line_ref(), self.get_line_text());
+  			
+				self.log_action("XML valid",self.get_line(), self.get_line_ref(), self.get_line_text());
+				//plan B	
+				var url = "./proxy.php";
+//				proxy_data = {doc:self.doc_ref, page: self.page_ref};
+				proxy_data = {col: self.col_ref, doc:self.doc_ref, page: self.page_ref};
 
-				self.save_xml(url,self.xmlData, function(data){
-					console.log(data);
+				self.save_xml_via_proxy(url,proxy_data, self.xmlData, function(data){
+				
+//				self.save_xml(url,self.xmlData, function(data){
+				//	console.log(data);
 					if(!data){
 						BootstrapDialog.show({
 							type: BootstrapDialog.TYPE_DANGER,
