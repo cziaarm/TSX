@@ -1217,7 +1217,7 @@ function TSXTranscript( tsxDoc ){
 			if($(button).find("span").hasClass("glyphicon-file")){
 				self.cm.eachLine(function(cm_line){
 					self.cm.replaceRange("",{line: self.cm.getLineNumber(cm_line), ch:0}, {line: self.cm.getLineNumber(cm_line), ch:null});
-					$(button).attr("title","Load transcript").find("span").removeClass("glyphicon-file").addClass("glyphicon-list-alt");
+					$(button).attr("title","Load existing transcript").find("span").removeClass("glyphicon-file").addClass("glyphicon-list-alt");
 				});	
 				//set preview
 				self.render_tei("");
@@ -1235,7 +1235,7 @@ function TSXTranscript( tsxDoc ){
 				$(button).attr("title","Clear transcript").find("span").removeClass("glyphicon-list-alt").addClass("glyphicon-file");
 				//set preview
 				self.render_tei(self.text);
-  				self.log_action("Load transcript - edit area",self.get_line(), self.get_line_ref(), self.get_line_text());
+  				self.log_action("Load existing transcript - edit area",self.get_line(), self.get_line_ref(), self.get_line_text());
 			}
 			//TODO work out what happens when this is used mid-edit...?!
 			self.cm.markClean();
@@ -1342,6 +1342,25 @@ function TSXTranscript( tsxDoc ){
 			}else{
 
 			}
+		});
+		$("#tsx-transcript-ready").on("click", function(){
+			self.post_data("./send_mail.php", {col: self.col_ref, doc: self.doc_ref, page: self.page_ref, session: $.cookie("TSX_session"), userid: self.userdata.userId }, function(data){
+					if(!data){
+						BootstrapDialog.show({
+							type: BootstrapDialog.TYPE_DANGER,
+							title: "Transcript review request not sent!",
+							message: "<p>We have an issue the request to review the transcript.</p>"
+						});
+					}else{
+						BootstrapDialog.show({
+							type: BootstrapDialog.TYPE_SUCCESS,
+							title: "Transcript review requested",
+							message: "<p>The TSX administrator has been informed that your transcript is ready for review.</p>"
+						});
+		  				self.log_action("Transcript review requested",self.get_line(), self.get_line_ref(), self.get_line_text());
+					}
+			
+			});
 		});
 	}
 	
