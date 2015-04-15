@@ -30,8 +30,10 @@ require("./head.inc.php");?>
 	    <div class="panel panel-default">
 			<div class="panel-heading">Transcript
 				<div id="tsx-edit-control" class="btn-toolbar tsx-panel-control" role="toolbar" aria-label="...">
+						<button id="tsx-transcript-ready" type="button" class="btn btn-default" title="Transcript is ready!"><span class="glyphicon glyphicon-envelope"></span></button>
+
 						<button id="tsx-save-tei" type="button" class="btn btn-default" title="Save changes"><span class="glyphicon glyphicon-save"></span></button>
-						<button id="tsx-toggle-transcript" type="button" class="btn btn-default" title="Clear transcript"><span class="glyphicon glyphicon-list-alt"></span></button>
+						<button id="tsx-toggle-transcript" type="button" class="btn btn-default" title="Load existing transcript"><span class="glyphicon glyphicon-list-alt"></span></button>
 				</div>
 			</div>
 			<div class="panel-body" id="tsx-edit-panel">
