@@ -323,7 +323,7 @@ function TSXPage( ){
 		}
 		self.unload_thumbnails();
 		for(var i in pages){
-			console.log(pages[i]);		
+			//console.log(pages[i]);		
 			var thumb = '<div class="tsx-thumbbox col-sm-6 col-md-3">'+
 				'<a href="./transcribe#'+self.col_ref+'/'+pages[i].docId+'/'+pages[i].pageNr+'" class="thumbnail">'+
 					'<img src="'+pages[i].thumbUrl+'" alt="Tumbnail for '+pages[i].thumbUrl+'"/>';
@@ -721,7 +721,9 @@ function TSXFiles( ){
 			if($("#"+data.selected).hasClass("tsx-page")){
 				$(".tsx-page > a > i").removeClass("glyphicon-folder-open").addClass("glyphicon-folder-close");
 				$("#" + data.node.id + " > a > i").removeClass("glyphicon-folder-close").addClass("glyphicon-folder-open");
-				var url = self.data_server+"/docs/"+data.node.li_attr["data-docid"]+"/fulldoc"; //gets json 
+				var url = self.data_server+"collections/"+self.col_ref+"/"+data.node.li_attr["data-docid"]+"/fulldoc"; //gets json 	
+				console.log("NEW URL: "+url);
+//				var url = self.data_server+"/docs/"+data.node.li_attr["data-docid"]+"/fulldoc"; //gets json 	
 				self.update_hash(data.node.id);			
 				self.load_json(url, self.load_thumbnails);
 			}
@@ -730,7 +732,9 @@ function TSXFiles( ){
 		$('#tsx-file-panel').on('loaded.jstree', function (e, data) {
 			if($("#tsx-thumb-panel > .container-fluid > .row").children().length == 0 &&
 				self.doc_ref != undefined){
-				var url = self.data_server+"/docs/"+self.doc_ref+"/fulldoc"; //gets json 
+				var url = self.data_server+"collections/"+self.col_ref+"/"+self.doc_ref+"/fulldoc"; //gets json 
+				console.log("NEW URL: "+url);
+//				var url = self.data_server+"/docs/"+self.doc_ref+"/fulldoc"; //gets json 
 				self.load_json(url, self.load_thumbnails);
 			}
 		});
@@ -808,7 +812,9 @@ function TSXDocument( ){
 	this.update_state = function(){
 
 		if($.cookie("TSX_session") != undefined){
-			var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref;
+			var url = self.data_server+"collections/"+self.col_ref+"/"+self.doc_ref+"/"+self.page_ref;
+			console.log("NEW URL: "+url);
+		//	var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref;
 			self.load_xml(url, self.load_image);
 		}else{
 			$("#tsx-edit-panel").html("<p>Please sign in to continue transcribing.</p>");
@@ -889,14 +895,19 @@ function TSXDocument( ){
 		});			
 
 		//default to...
-		self.zoom_flag = true;
+		self.zoom_flag = false;
+		console.log("zoomflag: "+self.zoom_flag);
 		$("#tsx-zoom-pause").on('click',function(e) { 
 			if(!self.zoom_flag || self.zoom_flag == undefined){
 				self.zoom_flag = true;
-				$("span", this).removeClass("glyphicon-play").addClass("glyphicon-pause");								
+				$("span", this).removeClass("glyphicon-search").addClass("glyphicon-ban-circle");
+				$(this).attr("title", "Turn off auto-zoom");
+				self.tsxTranscript.go_to_line(self.tsxTranscript.polys[self.tsxTranscript.get_line()], self.tsxTranscript.get_line(), true);
 			}else{
 				self.zoom_flag = false;
-				$("span", this).removeClass("glyphicon-pause").addClass("glyphicon-play");
+				$("span", this).removeClass("glyphicon-ban-circle").addClass("glyphicon-search");
+				$(this).attr("title", "Turn on auto-zoom");
+				self.reset_view();
 			}
 
 		});
@@ -1310,7 +1321,9 @@ function TSXTranscript( tsxDoc ){
 			}
 			if(!errors){
 				console.log(self.xmlData);
-				var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/text";
+				var url = self.data_server+"collections/"+self.col_ref+"/"+self.doc_ref+"/"+self.page_ref;
+				console.log("NEW URL: "+url);
+//				var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/text";
   			
 				self.log_action("XML valid",self.get_line(), self.get_line_ref(), self.get_line_text());
 				//plan B	
@@ -1571,15 +1584,16 @@ function TSXTranscript( tsxDoc ){
 		tsxDoc.poly_set.push(poly.attr({"stroke":"none", "fill":"white", opacity: 0}));	
 		return poly;
 	}
-	this.go_to_line = function(poly, line){
+	this.go_to_line = function(poly, line, current_override){
 		//line not changed... no action	
-		if(line == self.current_line)
+		if(line == self.current_line && current_override == undefined)
 			return false;
 	  	
 		self.log_action("Line change",self.get_line(), self.get_line_ref(), self.get_line_text());
 
 		if(poly == undefined) return;
 //		if(poly.line_ref != undefined) self.tsxHTR.do_HTR(poly.full_line_ref);
+
 		if(tsxDoc.zoom_flag){
 			//use line width to set scale
 			tsxDoc.paper.scale =  tsxDoc.raph.width / (poly.rec.x.max-poly.rec.x.min);

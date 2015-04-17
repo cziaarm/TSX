@@ -83,7 +83,7 @@ require("./head.inc.php");?>
 //		}else{
 //			var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerTesting/rest/";
 //		}
-			var data_server = "https://dbis-faxe.uibk.ac.at/TrpServer/rest/";
+			var data_server = "https://transkribus.eu/TrpServer/rest/";
 		tsxController = new TSXController({data_server: data_server});
 	});
 </script>

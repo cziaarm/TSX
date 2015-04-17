@@ -14,7 +14,7 @@ require("./head.inc.php");?>
 			<div class="panel-heading">Image
 				<div id="tsx-image-control" class="btn-toolbar tsx-panel-control" role="toolbar" aria-label="...">
 					<!--<div class="btn-group" role="group" aria-label="Zoom controls">-->
-						<button id="tsx-zoom-pause" type="button" class="btn btn-default" title="Hold current zoom"><span class="glyphicon glyphicon-ban-circle"></span></button>
+						<button id="tsx-zoom-pause" type="button" class="btn btn-default" title="Turn on auto-zoom"><span class="glyphicon glyphicon-search"></span></button>
 						<button id="tsx-zoom-in" type="button" class="btn btn-default" title="Zoom in"><span class="glyphicon glyphicon-plus"></span></button>
 						<button id="tsx-zoom-reset" type="button" class="btn btn-default" title="Reset zoom"><span class="glyphicon glyphicon-record"></span></button>
 						<button id="tsx-zoom-out" type="button" class="btn btn-default" title="Zoom out"><span class="glyphicon glyphicon-minus"></span></button>
@@ -80,7 +80,7 @@ require("./head.inc.php");?>
 //	}else{
 //		var data_server = "https://dbis-faxe.uibk.ac.at/TrpServerTesting/rest/";
 //	}
-	var data_server = "https://dbis-faxe.uibk.ac.at/TrpServer/rest/";
+	var data_server = "https://transkribus.eu/TrpServer/rest/";
 
 	
 	tsxConroller = new TSXController({data_server: data_server, view_box: "#tsx-image", image_panel: "#tsx-image-panel", edit_panel: "#tsx-edit-panel"});
