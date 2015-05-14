@@ -166,13 +166,18 @@ function TSX(config){
 */
 		var text_length;
 		if(text != undefined) text_length = text.length;
-		var userId
-		if(self.userdata != undefined) userId = self.userdata.userId;
+		var userId;
+		var userName;
+		if(self.userdata != undefined){
+			userId = self.userdata.userId;
+			userName = self.userdata.userName;
+		}
 
 		self.post_data("/TSX/metrics.php",{session: $.cookie("TSX_session"),
 						label: action, 
 						timestamp: Date.now(), 
 						user_id: userId,
+						user_name: userName,
 						document_ref: self.doc_ref,
 						page_ref: self.page_ref,
 						line_length: text_length,
@@ -321,14 +326,23 @@ function TSXPage( ){
 		}else{
 			var pages = data.pageList.pages;
 		}
-		self.unload_thumbnails();
+		self.unload_thumbnails();	
 		for(var i in pages){
 			//console.log(pages[i]);		
 			var thumb = '<div class="tsx-thumbbox col-sm-6 col-md-3">'+
 				'<a href="./transcribe#'+self.col_ref+'/'+pages[i].docId+'/'+pages[i].pageNr+'" class="thumbnail">'+
 					'<img src="'+pages[i].thumbUrl+'" alt="Tumbnail for '+pages[i].thumbUrl+'"/>';
 					if(pages[i].tsList != undefined)
-					thumb = thumb + ' <div class="caption">Page '+pages[i].pageNr+' ('+self.humanise(pages[i].tsList.transcripts[0].status)+')</div>';
+					var latest = 0;
+					var latest_transcript;
+					for(var t in pages[i].tsList.transcripts){
+						if (pages[i].tsList.transcripts[t].timestamp > latest){
+							latest = pages[i].tsList.transcripts[t].timestamp;
+							latest_transcript = t;
+						}
+					}
+					
+					thumb = thumb + ' <div class="caption">Page '+pages[i].pageNr+' ('+self.humanise(pages[i].tsList.transcripts[latest_transcript].status)+')</div>';
 				thumb = thumb + '</a>'+
 			'</div>';
 			$("#tsx-thumb-panel > .container-fluid > .row").append(thumb);
@@ -1036,7 +1050,33 @@ function TSXTranscript( tsxDoc ){
 			return $(val).text();
 		});
 		var latest = Math.max.apply(Math,timestamps);
-		self.xml_path = $("tsList transcripts timestamp:contains("+latest+")",tsxDoc.pageData).parent("transcripts").find("url").text();
+//		self.xml_path = $("tsList transcripts timestamp:contains("+latest+")",tsxDoc.pageData).parent("transcripts").find("url").text();
+		console.log(tsxDoc.pageData);
+		//This will be the latest transcript either directly loaded or saved via TSX	
+//		self.xml_path = $("tsList transcripts:not(:has(>toolName)) timestamp:contains("+latest+")",tsxDoc.pageData).parent("transcripts").find("url").text();
+
+		//we load latest regardless of source, but then only show by default it not HTR engine one...
+		self.latest_ts_md = $("tsList transcripts timestamp:contains("+latest+")",tsxDoc.pageData);
+		//If the transcript does have a toolName defined
+		//we assume it is an HTR Engine one and we don't defatul to showing it
+		if($(self.latest_ts_md).parent("transcripts").find("toolName").length > 0) { //user defined we show this
+			self.show_trans = false;
+
+		}else{
+			self.show_trans = true;
+			$("#tsx-toggle-transcript").attr("title","Clear transcript").find("span").removeClass("glyphicon-list-alt").addClass("glyphicon-file");
+
+		}
+//		self.xml_path = $("tsList transcripts timestamp:contains("+latest+")",tsxDoc.pageData).parent("transcripts").find("url").text();
+		self.xml_path = $(self.latest_ts_md).parent("transcripts").find("url").text();
+
+
+		//this will be the initial HTRd effort
+		self.HTR_transcript_path = $("tsList transcripts toolName:contains('HTR Engine')",tsxDoc.pageData).parent("transcripts").find("url").text();
+
+//		self.xml_path = $("tsList transcripts toolName",tsxDoc.pageData).parent("transcripts").find("url", $(this).closest("toolName").length == 0 ).text(); //latest transcript where toolname does not exist
+
+
 		console.log("We should load the transcript from ", self.xml_path);
 		
 		self.lock = new self.Blocker('#tsx-transcript-editor');
@@ -1165,8 +1205,12 @@ function TSXTranscript( tsxDoc ){
 			self.polys[i]=poly;
 		});
 
-		//	self.cm.setValue(self.text);
-		self.cm.setValue(self.lines);
+		//deault to SHOWING the latest (non HTR Engine) transcript
+		if(self.show_trans)
+			self.cm.setValue(self.text);
+		else
+			self.cm.setValue(self.lines);
+
 		self.cm.markClean();
 		
 		self.lock.unblockUI();
@@ -1357,7 +1401,7 @@ function TSXTranscript( tsxDoc ){
 			}
 		});
 		$("#tsx-transcript-ready").on("click", function(){
-			self.post_data("./send_mail.php", {col: self.col_ref, doc: self.doc_ref, page: self.page_ref, session: $.cookie("TSX_session"), userid: self.userdata.userId }, function(data){
+			self.post_data("./send_mail.php", {col: self.col_ref, doc: self.doc_ref, page: self.page_ref, session: $.cookie("TSX_session"), userid: self.userdata.userId, username: self.userdata.userName }, function(data){
 					if(!data){
 						BootstrapDialog.show({
 							type: BootstrapDialog.TYPE_DANGER,
