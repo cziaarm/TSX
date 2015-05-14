@@ -11,7 +11,11 @@ require("./head.inc.php");?>
    <div class="row">
   	<div class="col-md-9 col-md-push-3">
 	    <div class="panel panel-default" >
-			<div class="panel-heading">Thumbnails</div>
+			<div class="panel-heading">Thumbnails
+				<div class="btn-toolbar tsx-panel-control" role="toolbar" aria-label="...">
+					<a href="/td/TSX_Guidelines#Selecting_a_manuscript_to_transcribe" target="_new"><button type="button" class="btn btn-default pull-right" title="Guidelines"><span class="glyphicon glyphicon-question-sign"></span></button></a>
+				</div>
+			</div>
 			<div class="panel-body" id="tsx-thumb-panel">
 				<div class="container-fluid">
 					<div class="row">
@@ -22,7 +26,11 @@ require("./head.inc.php");?>
 	</div>
   	<div class="col-md-3 col-md-pull-9">
 	    <div class="panel panel-default">
-		<div class="panel-heading">Manuscript collections</div>
+		<div class="panel-heading">Manuscript collections
+			<div class="btn-toolbar tsx-panel-control" role="toolbar" aria-label="...">
+				<a href="/td/TSX_Guidelines#Selecting_a_manuscript_to_transcribe" target="_new"><button type="button" class="btn btn-default pull-right" title="Guidelines"><span class="glyphicon glyphicon-question-sign"></span></button></a>
+			</div>
+		</div>
 		<div class="panel-body" id="tsx-file-panel">
 		</div>
 	    </div>

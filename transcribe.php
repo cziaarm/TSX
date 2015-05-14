@@ -18,6 +18,8 @@ require("./head.inc.php");?>
 						<button id="tsx-zoom-in" type="button" class="btn btn-default" title="Zoom in"><span class="glyphicon glyphicon-plus"></span></button>
 						<button id="tsx-zoom-reset" type="button" class="btn btn-default" title="Reset zoom"><span class="glyphicon glyphicon-record"></span></button>
 						<button id="tsx-zoom-out" type="button" class="btn btn-default" title="Zoom out"><span class="glyphicon glyphicon-minus"></span></button>
+						<a href="/td/TSX_Guidelines#The_transcription_area" target="_new"><button type="button" class="btn btn-default" title="Guidelines"><span class="glyphicon glyphicon-question-sign"></span></button></a>
+
 					<!--</div> -->
 				</div>
 			</div>
@@ -34,6 +36,7 @@ require("./head.inc.php");?>
 
 						<button id="tsx-save-tei" type="button" class="btn btn-default" title="Save changes"><span class="glyphicon glyphicon-save"></span></button>
 						<button id="tsx-toggle-transcript" type="button" class="btn btn-default" title="Load existing transcript"><span class="glyphicon glyphicon-list-alt"></span></button>
+						<a href="/td/TSX_Guidelines#The_transcription_area" target="_new"><button type="button" class="btn btn-default" title="Guidelines"><span class="glyphicon glyphicon-question-sign"></span></button></a>
 				</div>
 			</div>
 			<div class="panel-body" id="tsx-edit-panel">
