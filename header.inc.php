@@ -12,6 +12,8 @@
 	     </div>
 	     <ul class="nav navbar-nav">
 		<li <?php print $menu['index'];?>><a href="./">Home</a></li>
+		<li><a href="/td/Getting_started_with_TSX" target="_new">Getting Started</a></li>
+		<li><a href="/td/TSX_Guidelines" target="_new">Guidelines</a></li>
 		<li <?php print $menu['desk']; print $menu['transcribe'];?>><a href="./desk">Desk</a></li>
 		
 	    </ul>
