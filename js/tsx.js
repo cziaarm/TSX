@@ -1270,6 +1270,12 @@ function TSXTranscript( tsxDoc ){
 		$("#tsx-toggle-transcript").on("click", function(e){
 			var button = this;
 			if($(button).find("span").hasClass("glyphicon-file")){
+
+				//Check as this will remove any unsaved content!!
+				if(!self.cm.isClean()){
+					 console.log("dialog to suggest a save?... or maybe an automatic save?");
+					 return;
+				}
 				self.cm.eachLine(function(cm_line){
 					self.cm.replaceRange("",{line: self.cm.getLineNumber(cm_line), ch:0}, {line: self.cm.getLineNumber(cm_line), ch:null});
 					$(button).attr("title","Load existing transcript").find("span").removeClass("glyphicon-file").addClass("glyphicon-list-alt");
@@ -1299,106 +1305,7 @@ function TSXTranscript( tsxDoc ){
 			return false;
 		});
 		$("#tsx-save-tei").on("click", function(){
-			if(!self.cm.isClean()){ // any change whatsoever
-  				self.log_action("User save requested",self.get_line(), self.get_line_ref(), self.get_line_text());
-				var errors = false;
-				var open_tei = [];
-				self.cm.eachLine(function(cm_line){
-				
-					var lineObj = self.cm.lineInfo(cm_line);
-					if(!self.validateXML(cm_line.text, true)){ //we have a possible multi line tei tag to close...
-						var re = /<\/[^>]+>/g;
-						if(cm_line.text.match(re)){
-							var open = open_tei.pop();
-							console.log("use this to open", open);
-							self.cm.replaceRange(open, {line: lineObj.line, ch:0}, null);
-						}else{
-
-							//we need to close any multi line open tags in this line
-							var re = /(<([^\/\s]+)[^>]*>)/g;
-							if(cm_line.text.match(re)){
-								var tag_name = RegExp.$2;
-								var tag = RegExp.$1;
-								var close = "</"+tag_name+">";
-								self.cm.replaceRange(close, {line: lineObj.line, ch:cm_line.text.length}, null);
-								open_tei.push(tag);
-							}
-						}
-					}
-					//check xml validity
-
-					//not sure we need this as codemirror(?) may have already escaped bad xml
-					if(self.validateXML(cm_line.text)){
-							
-//						console.log("Valid: "+cm_line.text);
-						
-						line_index = lineObj.line;
-						from_xml = $("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).html();
-						//if so did the actual text change
-						if(cm_line.text.localeCompare(self.removeNSAttr(from_xml))){
-							//lets encode (after all that)
-							cm_line.text = cm_line.text.replace(/</g, '&lt;')
-							   .replace(/>/g, '&gt;')
-							   .replace(/"/g, '&quot;')
-							   .replace(/'/g, '&apos;');
-							$("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).html(cm_line.text);
-							//now loop through each word... let's hope not
-							/*
-							var word_ind = 0;
-							$("TextLine:eq("+line_index+") > Word", self.xmlData).each(function(){
-								//TODO strip our tags when considering just words
-								//or detect and wrap each word in own tag until detect end tag... christ I can't be bothered with that!
-								var ed_words = cm_line.text.split(/\s/); //not ideal
-								console.log("word: "+word_ind, ed_words[word_ind]);
-								//doesn't really handle empty words... I'm hoping the whole word updating thing will go away....
-								$(" > TextEquiv Unicode", this).html(ed_words[word_ind]);
-								
-								word_ind++;
-							});
-							*/
-						}
-						//TODO update <Words> too?
-					}else{
-						errors = true;
-					}
-				});
-			}
-			if(!errors){
-				console.log(self.xmlData);
-				var url = self.data_server+"collections/"+self.col_ref+"/"+self.doc_ref+"/"+self.page_ref;
-				console.log("NEW URL: "+url);
-//				var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/text";
-  			
-				self.log_action("XML valid",self.get_line(), self.get_line_ref(), self.get_line_text());
-				//plan B	
-				var url = "./proxy.php";
-//				proxy_data = {doc:self.doc_ref, page: self.page_ref};
-				proxy_data = {col: self.col_ref, doc:self.doc_ref, page: self.page_ref};
-
-				self.save_xml_via_proxy(url,proxy_data, self.xmlData, function(data){
-				
-//				self.save_xml(url,self.xmlData, function(data){
-				//	console.log(data);
-					if(!data){
-						BootstrapDialog.show({
-							type: BootstrapDialog.TYPE_DANGER,
-							title: "Transcript not saved!",
-							message: "<p>We have an issue and transcript changes have not been saved.</p>"
-						});
-		  				self.log_action("XML save error",self.get_line(), self.get_line_ref(), self.get_line_text())
-					}else{
-						BootstrapDialog.show({
-							type: BootstrapDialog.TYPE_SUCCESS,
-							title: "Saved Transcript",
-							message: "<p>Transcript changes have been saved.</p>"
-						});
-		  				self.log_action("XML saved",self.get_line(), self.get_line_ref(), self.get_line_text());
-					}
-				});
-				
-			}else{
-
-			}
+			self.save_tei();
 		});
 		$("#tsx-transcript-ready").on("click", function(){
 			self.post_data("./send_mail.php", {col: self.col_ref, doc: self.doc_ref, page: self.page_ref, session: $.cookie("TSX_session"), userid: self.userdata.userId, username: self.userdata.userName }, function(data){
@@ -1420,7 +1327,117 @@ function TSXTranscript( tsxDoc ){
 			});
 		});
 	}
+	this.save_tei = function(){
+		if(!self.cm.isClean()){ // any change whatsoever
+			self.log_action("User save requested",self.get_line(), self.get_line_ref(), self.get_line_text());
+			var errors = false;
+			var open_tei = [];
+			self.cm.eachLine(function(cm_line){
+			
+				var lineObj = self.cm.lineInfo(cm_line);
+				if(!self.validateXML(cm_line.text, true)){ //we have a possible multi line tei tag to close...
+					var re = /<\/[^>]+>/g;
+					if(cm_line.text.match(re)){
+						var open = open_tei.pop();
+						console.log("use this to open", open);
+						self.cm.replaceRange(open, {line: lineObj.line, ch:0}, null);
+					}else{
+
+						//we need to close any multi line open tags in this line
+						var re = /(<([^\/\s]+)[^>]*>)/g;
+						if(cm_line.text.match(re)){
+							var tag_name = RegExp.$2;
+							var tag = RegExp.$1;
+							var close = "</"+tag_name+">";
+							self.cm.replaceRange(close, {line: lineObj.line, ch:cm_line.text.length}, null);
+							open_tei.push(tag);
+						}
+					}
+				}
+				//check xml validity
+
+				//not sure we need this as codemirror(?) may have already escaped bad xml
+				if(self.validateXML(cm_line.text)){
+						
+//						console.log("Valid: "+cm_line.text);
+					
+					line_index = lineObj.line;
+					from_xml = $("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).html();
+					//if so did the actual text change
+					if(cm_line.text.localeCompare(self.removeNSAttr(from_xml))){
+						//lets encode (after all that)
+						cm_line.text = cm_line.text.replace(/</g, '&lt;')
+						   .replace(/>/g, '&gt;')
+						   .replace(/"/g, '&quot;')
+						   .replace(/'/g, '&apos;');
+						//create unicode tag if it doesn't exist
+						if($("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).length){
+							$("TextLine:eq("+line_index+") > TextEquiv Unicode", self.xmlData).html(cm_line.text);
+						}else{
+							$("TextLine:eq("+line_index+") > TextEquiv", self.xmlData).html("<Unicode>"+cm_line.text+"</Unicode>");
+						}
+
+						//now loop through each word... let's hope not
+						/*
+						var word_ind = 0;
+						$("TextLine:eq("+line_index+") > Word", self.xmlData).each(function(){
+							//TODO strip our tags when considering just words
+							//or detect and wrap each word in own tag until detect end tag... christ I can't be bothered with that!
+							var ed_words = cm_line.text.split(/\s/); //not ideal
+							console.log("word: "+word_ind, ed_words[word_ind]);
+							//doesn't really handle empty words... I'm hoping the whole word updating thing will go away....
+							$(" > TextEquiv Unicode", this).html(ed_words[word_ind]);
+							
+							word_ind++;
+						});
+						*/
+					}else{
+						console.log("not written:" +line_index);
+					}
+					//TODO update <Words> too?
+				}else{
+					errors = true;
+				}
+			});
+		}
+		if(!errors){
+			console.log(self.xmlData);
+			var url = self.data_server+"collections/"+self.col_ref+"/"+self.doc_ref+"/"+self.page_ref;
+			console.log("NEW URL: "+url);
+//				var url = self.data_server+"docs/"+self.doc_ref+"/"+self.page_ref+"/text";
+		
+			self.log_action("XML valid",self.get_line(), self.get_line_ref(), self.get_line_text());
+			//plan B	
+			var url = "./proxy.php";
+//				proxy_data = {doc:self.doc_ref, page: self.page_ref};
+			proxy_data = {col: self.col_ref, doc:self.doc_ref, page: self.page_ref};
+
+			self.save_xml_via_proxy(url,proxy_data, self.xmlData, function(data){
+			
+//				self.save_xml(url,self.xmlData, function(data){
+			//	console.log(data);
+				if(!data){
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_DANGER,
+						title: "Transcript not saved!",
+						message: "<p>We have an issue and transcript changes have not been saved.</p>"
+					});
+					self.log_action("XML save error",self.get_line(), self.get_line_ref(), self.get_line_text())
+				}else{
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_SUCCESS,
+						title: "Saved Transcript",
+						message: "<p>Transcript changes have been saved.</p>"
+					});
+					self.log_action("XML saved",self.get_line(), self.get_line_ref(), self.get_line_text());
+				}
+			});
+			
+		}else{
+
+		}
 	
+	}
 	this.tei = {
 			"tsx-tei-underscore": {open: '<hi rend="underscore">', close: '</hi>'},
 			"tsx-tei-super": {open: '<hi rend="superscript">', close: '</hi>'},
