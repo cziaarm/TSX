@@ -1273,31 +1273,30 @@ function TSXTranscript( tsxDoc ){
 
 				//Check as this will remove any unsaved content!!
 				if(!self.cm.isClean()){
-					 console.log("dialog to suggest a save?... or maybe an automatic save?");
-					 return;
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_WARNING,
+						title: "Transcript hsa changed",
+						message: "<p>There are unsaved changes to this transcript are you sure you would like to clear it?</p>",
+						buttons: [{label: 'Save and continue',
+								action: function(dialogItself){
+									self.save_tei(self.clear_tei);
+									dialogItself.close();
+								}
+							},
+							{label: 'Continue without saving',
+								action: function(dialogItself){
+									dialogItself.close();
+								}
+						}]
+					});
+					return;
+				}else{
+					self.clear_tei(button);
 				}
-				self.cm.eachLine(function(cm_line){
-					self.cm.replaceRange("",{line: self.cm.getLineNumber(cm_line), ch:0}, {line: self.cm.getLineNumber(cm_line), ch:null});
-					$(button).attr("title","Load existing transcript").find("span").removeClass("glyphicon-file").addClass("glyphicon-list-alt");
-				});	
-				//set preview
-				self.render_tei("");
-				tsxDoc.reset_view();
-  				self.log_action("Clear transcript - edit area",self.get_line(), self.get_line_ref(), self.get_line_text());
 			}else{
-				self.cm.setValue(self.text);
-				var i=0;// This is why!!
-				self.cm.eachLine(function(cm_line){
-					cm_line.ref=self.polys[i].ref;
-					i++;
-				});	
-				self.tsxHTR.handle_wordgraphs(self.tsxHTR.wordgraph_data);
-				
-				$(button).attr("title","Clear transcript").find("span").removeClass("glyphicon-list-alt").addClass("glyphicon-file");
-				//set preview
-				self.render_tei(self.text);
-  				self.log_action("Load existing transcript - edit area",self.get_line(), self.get_line_ref(), self.get_line_text());
+				self.restore_tei(button);
 			}
+			console.log("CONTINING WITH CLEAR stuff...");
 			//TODO work out what happens when this is used mid-edit...?!
 			self.cm.markClean();
 			//TODO stop cm cursor activity
@@ -1327,7 +1326,35 @@ function TSXTranscript( tsxDoc ){
 			});
 		});
 	}
-	this.save_tei = function(){
+	this.clear_tei = function(button){
+		if(button === undefined) button = $("#tsx-toggle-transcript");
+		self.cm.eachLine(function(cm_line){
+			self.cm.replaceRange("",{line: self.cm.getLineNumber(cm_line), ch:0}, {line: self.cm.getLineNumber(cm_line), ch:null});
+			$(button).attr("title","Load existing transcript").find("span").removeClass("glyphicon-file").addClass("glyphicon-list-alt");
+		});	
+		//set preview
+		self.render_tei("");
+		tsxDoc.reset_view();
+		self.log_action("Clear transcript - edit area",self.get_line(), self.get_line_ref(), self.get_line_text());
+
+	}
+	this.restore_tei = function(button){
+		self.cm.setValue(self.text);
+		var i=0;// This is why!!
+		self.cm.eachLine(function(cm_line){
+			cm_line.ref=self.polys[i].ref;
+			i++;
+		});	
+		self.tsxHTR.handle_wordgraphs(self.tsxHTR.wordgraph_data);
+		
+		$(button).attr("title","Clear transcript").find("span").removeClass("glyphicon-list-alt").addClass("glyphicon-file");
+		//set preview
+		self.render_tei(self.text);
+		self.log_action("Load existing transcript - edit area",self.get_line(), self.get_line_ref(), self.get_line_text());
+
+	}
+
+	this.save_tei = function(callback){
 		if(!self.cm.isClean()){ // any change whatsoever
 			self.log_action("User save requested",self.get_line(), self.get_line_ref(), self.get_line_text());
 			var errors = false;
@@ -1392,7 +1419,7 @@ function TSXTranscript( tsxDoc ){
 						});
 						*/
 					}else{
-						console.log("not written:" +line_index);
+				//		console.log("not written:" +line_index);
 					}
 					//TODO update <Words> too?
 				}else{
@@ -1430,6 +1457,46 @@ function TSXTranscript( tsxDoc ){
 						message: "<p>Transcript changes have been saved.</p>"
 					});
 					self.log_action("XML saved",self.get_line(), self.get_line_ref(), self.get_line_text());
+					self.cm.markClean();
+/***********************************************************************************************/
+				//reset all the transcript stuff!!!!
+				self.text = "";
+				self.lines = ""; //this will be a bunch of newlines to scope out the no-transcript-load scenario
+				self.polys = {};
+				$("TextLine", self.xmlData).each(function(i){
+
+					var poly = self.draw_polygon(this,i);
+					//TODO fix this for IE
+					var raw_text_line = self.removeNSAttr($(" > TextEquiv Unicode",this).html());
+					//for cases where the text is *only* in Word tags :|
+					if(raw_text_line === "" && $(" > Word",this).length > 0){
+						$(" > Word",this).each(function(){
+							raw_text_line += self.removeNSAttr($(" > TextEquiv Unicode",this).html()) +" ";
+						});
+						raw_text_line = raw_text_line.replace(/\s+$/, "");
+					}
+					raw_text_line = raw_text_line.replace(/&apos;/g, "'")
+										   .replace(/&quot;/g, '"')
+										   .replace(/&gt;/g, '>')
+										   .replace(/&lt;/g, '<');
+										   //.replace(/&amp;/g, '&');
+									   
+					//line ref
+					var line_ref = self.removeNSAttr($(this).attr("id"));
+					//make text block for codemirror
+					self.text += raw_text_line;
+					//add new line if not last line
+					if((i+1)!=$("TextLine", self.xmlData).length){
+						self.text +="\n";
+						self.lines +="\n";
+					}
+					//store this stuff in the poly object
+					poly.text = raw_text_line;
+					poly.ref = line_ref;
+					self.polys[i]=poly;
+				});
+/**********************************************************************************************/
+					if(callback != undefined) callback();
 				}
 			});
 			
