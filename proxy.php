@@ -19,7 +19,7 @@ if(preg_match('/^\d+$/',$col) && preg_match('/^\d+$/',$doc) && preg_match('/^\d+
 	// create a new cURL resource
 //	$ch = curl_init();
 
-	$curl = "curl -X POST -d @$filename --cookie \"JSESSIONID=$sessionid\" --header \"Content-Type: application/xml\" https://transkribus.eu/TrpServer/rest/collections/$col/$doc/$page/text";
+	$curl = "curl -k -X POST -d @$filename --cookie \"JSESSIONID=$sessionid\" --header \"Content-Type: application/xml\" https://transkribus.eu/TrpServer/rest/collections/$col/$doc/$page/text";
 	 error_log($curl);
 
 	print passthru($curl);
