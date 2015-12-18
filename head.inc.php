@@ -1,5 +1,10 @@
 <?php
 require("./server.php");
+if(preg_match("/dev/",$_SERVER["SERVER_NAME"]))
+	require("./server_dev.php");
+if(preg_match("/test/",$_SERVER["SERVER_NAME"]))
+	require("./server_test.php");
+
 $menu[$knowthyself] = 'class="active"';
 ?>
   <head>

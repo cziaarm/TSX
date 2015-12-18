@@ -22,7 +22,7 @@ if(preg_match('/^\d+$/',$col) && preg_match('/^\d+$/',$doc) && preg_match('/^\d+
 	$curl = "curl -k -X POST -d @$filename --cookie \"JSESSIONID=$sessionid\" --header \"Content-Type: application/xml\" https://transkribus.eu/TrpServer/rest/collections/$col/$doc/$page/text";
 	 error_log($curl);
 
-	print passthru(escapeshellcmd($curl));
+	print passthru($curl);
 
 	// set URL and other appropriate options
 /*	$url = "https://dbis-faxe.uibk.ac.at/TrpServer/rest/docs/$col/$doc/$page/text";
