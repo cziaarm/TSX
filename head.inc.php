@@ -1,8 +1,10 @@
 <?php
 require("./server.php");
-if(preg_match("/dev/",$_SERVER["SERVER_NAME"]))
+$url = $_SERVER["SERVER_NAME"].$_SERVER["SCRIPT_NAME"];
+
+if(preg_match("/dev/i",$url))
 	require("./server_dev.php");
-if(preg_match("/test/",$_SERVER["SERVER_NAME"]))
+if(preg_match("/test/i",$url))
 	require("./server_test.php");
 
 $menu[$knowthyself] = 'class="active"';
