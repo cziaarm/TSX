@@ -123,7 +123,7 @@ function TSX(config){
 		}
 //		if($.cookie("TSX_session") != undefined)
 //			params.data.JSESSIONID = $.cookie("TSX_session");
-		console.log(url, params);
+		//console.log(url, params);
 		$.ajax(url, params ).
 		done(function(data, textStatus, jqxhr){
 			if(callback != undefined)
@@ -708,7 +708,7 @@ function TSXFiles( ){
 
 		if((parseInt(args.i)+1) == self.filetree.children.length){
 			console.log("rendering filetree");
-			self.render_filetree();
+			setTimeout(self.render_filetree(), 5000);
 		}
 	}
 	this.render_filetree = function(){
@@ -1084,7 +1084,7 @@ function TSXTranscript( tsxDoc ){
 		self.load_xml(self.xml_path, self.handle_transcript);
 		self.cm = CodeMirror(document.getElementById("tsx-transcript-editor"),{
 				lineNumbers: true, 
-				mode: "xml", 
+	//			mode: "xml", 
 				lineWrapping: true,
 				gutters: ["CodeMirror-linenumbers", "tsx-htr-available"]
 			});
@@ -1167,13 +1167,13 @@ function TSXTranscript( tsxDoc ){
 			if(!self.cm.isClean()) return 'There are unsaved changes to this transcript';
 		});
 		self.xmlData = data;
+		console.log("data: ",data);
 		//The raph set for the line polygons
 		tsxDoc.poly_set = tsxDoc.raph.set();
 		self.text = "";
 		self.lines = ""; //this will be a bunch of newlines to scope out the no-transcript-load scenario
 		self.polys = {};
 		$("TextLine", data).each(function(i){
-
 			var poly = self.draw_polygon(this,i);
 			//TODO fix this for IE
 			var raw_text_line = self.removeNSAttr($(" > TextEquiv Unicode",this).html());
@@ -1189,7 +1189,7 @@ function TSXTranscript( tsxDoc ){
 								   .replace(/&gt;/g, '>')
 								   .replace(/&lt;/g, '<');
 								   //.replace(/&amp;/g, '&');
-							   
+
 			//line ref
 			var line_ref = self.removeNSAttr($(this).attr("id"));
 			//make text block for codemirror
@@ -1201,7 +1201,8 @@ function TSXTranscript( tsxDoc ){
 			}
 			//store this stuff in the poly object
 			poly.text = raw_text_line;
-			poly.ref = line_ref;
+			poly.ref = line_ref; 
+			//console.log("setting polys["+i+"] to ",poly);
 			self.polys[i]=poly;
 		});
 
@@ -1259,12 +1260,13 @@ function TSXTranscript( tsxDoc ){
 		self.cm.on("change", function(cm, changeObj){
 			var new_text = changeObj.text[0]; //not sure what situation would cause more than one item in this array			
 			//will only replace & !not &amp;... this is important otherwise we would have runaway replacement!!
-			var re = /&(?!amp;)/g;
+/*			var re = /&(?!amp;)/g;
 			if(re.exec(new_text)){
 //				console.log("change ampersand");
 	//			console.log(changeObj.from, changeObj.to);
 				self.cm.replaceRange(new_text.replace(re, "&amp;"), changeObj.from, {line: changeObj.to.line, ch: changeObj.to.ch+new_text.length});
 			}
+*/
 		});
 		
 		$("#tsx-toggle-transcript").on("click", function(e){
@@ -1296,7 +1298,6 @@ function TSXTranscript( tsxDoc ){
 			}else{
 				self.restore_tei(button);
 			}
-			console.log("CONTINING WITH CLEAR stuff...");
 			//TODO work out what happens when this is used mid-edit...?!
 			self.cm.markClean();
 			//TODO stop cm cursor activity
@@ -1516,32 +1517,98 @@ function TSXTranscript( tsxDoc ){
 		};
 	
 	this.init_buttons = function(){
+		//not used
 		$("#tsx-suggest").on("click", function(){self.tsxHTR.get_HTR_data(undefined);});
 
-			$(".tsx-tei-insert").on("click",function(){			
-				self.cm.replaceSelection(self.tei[$(this).attr("id")].insert);
+			$(".tsx-tei-insert").on("click",function(){	
+
+				var start_offset = self.cm.getCursor("from");
+				var end_offset = {line : self.cm.getCursor().line, ch: self.cm.getCursor().ch+1}; //we need to select a char
+				//add tei as custom tag in line
+				custom_attr = $("#"+self.get_line_ref(), self.xmlData).attr("custom");
+				console.log($("#"+self.get_line_ref(), self.xmlData));
+
+				console.log("Current custom_attr: "+custom_attr);
+				//TODO This needs to be a less stringy procedure.
+				custom_attr != undefined ? custom_str = custom_attr +" "+ $(this).attr("id")+"{offset:"+start_offset.ch+";}" : custom_str=$(this).attr("id")+"{offset:"+start_offset.ch+";}";
+				$("#"+self.get_line_ref(), self.xmlData).attr("custom", custom_str);
+				console.log("added: ",custom_str+" to "+self.get_line_ref());
+				
+				//no more xml embedding!!
+//				self.cm.replaceSelection(self.tei[$(this).attr("id")].insert);
 				self.cm.focus();
 				self.log_action($(this).attr("id"),self.get_line(), self.get_line_ref(), self.get_line_text());
+				console.log("Marking text via insert with ",start_offset, end_offset, $(this).attr("id"));
+				//what do we have?
+				var sel_text = self.cm.getRange(start_offset, end_offset);
+				if(sel_text.match(/[^\s]/)){
+					self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")+"-fore"});
+				}else{
+					self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")+"-aft"});
+				}
+				console.log( self.xmlData );
 			});
 			//wrap TEI tags around selected content
 			$(".tsx-tei-wrap").on("click",function(){
+
 				var text = self.cm.getSelection();
-				//check for special case
-				if(self.tei[$(this).attr("id")] != undefined){
-					var open = self.tei[$(this).attr("id")].open;
-					var close = self.tei[$(this).attr("id")].close;
+				var start_offset = self.cm.getCursor("from");
+				var end_offset = self.cm.getCursor("to");
+				var custom_attr = $("#"+self.get_line_ref()).attr("custom");
+				if(start_offset.line != end_offset.line){ //multiline
+					for(var line = start_offset.line; line<=end_offset.line; line++){
+						s_off = 0;
+						e_off = self.cm.lineInfo(line).text.length;
+						if(line == start_offset.line)//first line
+							s_off = start_offset.ch;	
+						if(line == end_offset.line)//last line
+							e_off = end_offset.ch;
+
+						length = e_off - s_off;
+						
+						custom_attr != undefined ? custom_str = custom_attr + $(this).attr("id")+"{offset:"+s_off+"; length:"+length+";}" : custom_str=$(this).attr("id")+"{offset:"+s_off+"; length:"+length+";}";
+						
+						$("#"+self.get_line_ref(line), self.xmlData).attr("custom", custom_str);
+
+						console.log("added: ",custom_str+" to "+self.get_line_ref(line));
+
+//						console.log({line: line, ch: s_off}, {line: line, ch: e_off}, $(this).attr("id"));
+						self.cm.markText({line: line, ch: s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")});
+						//first line only
+						if(line == start_offset.line){
+							if($(this).attr("id").match(/tsx-tei-p/)){
+								self.cm.markText({line: line, ch: s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")+"-fore"});
+							}
+						}
+						//last line only
+						if(line == end_offset.line){
+							if($(this).attr("id").match(/tsx-tei-unclear/)){
+								self.cm.markText({line: line, ch:s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")+"-aft"});
+							}
+							if($(this).attr("id").match(/tsx-tei-p/)){
+								self.cm.markText({line: line, ch:s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")+"-aft"});
+							}
+
+						}
+
+					}				
+
 				}else{
-					open ='<'+$(this).attr("id").replace(/^tsx-tei-/,"")+'>';
-					close = open.replace(/^</, "</");
+					custom_attr != undefined ? custom_str = custom_attr + $(this).attr("id")+"{offset:"+start_offset.ch+"; length:"+text.length+";}" : custom_str=$(this).attr("id")+"{offset:"+start_offset.ch+"; length:"+text.length+";}";
+
+					$("#"+self.get_line_ref(), self.xmlData).attr("custom", custom_str);
+					console.log("added: ",custom_str+" to "+self.get_line_ref());
+					if($(this).attr("id").match(/tsx-tei-p/)){
+						self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")+"-fore"});
+						self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")+"-aft"});
+					}else{
+						self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")});
+					}
 				}
-				self.cm.replaceSelection(open+text+close);
 				self.cm.focus();
 				self.log_action($(this).attr("id"),self.get_line(), self.get_line_ref(), self.get_line_text());
+				console.log( self.xmlData );
 			});
-
-			
-//			$("#tsx-tei-underscore").on("click", self.do_tei);
-		
 		
 /*		$("#tsx-suggest-word").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_word);});
 		$("#tsx-suggest-line").on("click", function(){self.tsxHTR.get_HTR_data(undefined, self.suggest_line);});*/
@@ -1557,7 +1624,7 @@ function TSXTranscript( tsxDoc ){
 			readOnly: true,
 			origLeft: self.text,
 			lineNumbers: true,
-			mode: "text/html",
+//			mode: "text/html",
 			highlightDifferences: true,
 			connect: null,
 			collapseIdentical: false, //setting this to true has no effect :(
@@ -1685,22 +1752,44 @@ function TSXTranscript( tsxDoc ){
 	}
 	this.draw_polygon = function(textLine, line){
 		var svg_str = self.coords_to_svg($(" > Coords",textLine).attr("points"));
-		
+		//var svg_str = "M 0 0 L 0 "+tsxDoc.img.scaled.h+" L "+tsxDoc.img.scaled.w+" "+tsxDoc.img.scaled.h+ " L "+tsxDoc.img.scaled.w+" 0 z "+svg_str;
+
+		var whole_paper = "M 0 0 L 0 "+tsxDoc.img.scaled.h+" L "+tsxDoc.img.scaled.w+" "+tsxDoc.img.scaled.h+ " L "+tsxDoc.img.scaled.w+" 0 z ";
+
+//		var donut = tsxDoc.raph.path("M 50 50 L 50 150 L 150 150 L 150 50 z" +
+	//	var poly = tsxDoc.raph.path(whole_paper +
+//          " M 75 75 L 125 75 L 125 125 L 75 125 z").attr({"fill": "#f00", opacity: 0});
+
+//				svg_str).attr({"fill": "#f00", opacity: 0});
+
 		//TODO proper consistent references (names and value syntax)
 		var line_ref = $(textLine).attr("id");
 		var page_ref = $(textLine).parents("Page").attr("imageFilename").replace(/\.jpg$/,""); 
 		var region_ref = $(textLine).parent("TextRegion").attr("id");
 		
 		//TODO inverse and grey out the rest of the doc...or not?
-		var poly = tsxDoc.raph.path(svg_str);
+
+//		console.log(tsxDoc.img.scaled.w, tsxDoc.img.scaled.h);
+
+//		var poly = tsxDoc.raph.path(svg_str).attr({"stroke-width" : 3,"fill": "#000", "fill-opacity": 0});
+		var rec = self.get_poly_limits($(" > Coords",textLine).attr("points"));
+		
+		var padding = 0.05 //5% possible needs more padding on top
+		var xpad = (rec.x.max-rec.x.min)*padding;
+		var ypad = (rec.y.max-rec.y.min)*padding;
+	
+		var svg_str = "M "+(rec.x.min-xpad)+","+(rec.y.min-ypad)+" L "+(rec.x.min-xpad)+","+(rec.y.max+ypad)+" L "+(rec.x.max+xpad)+","+(rec.y.max+ypad)+" L "+(rec.x.max+xpad)+","+(rec.y.min-ypad)+" z";
+//		console.log(svg_str);
+		var poly = tsxDoc.raph.path(svg_str).attr({"stroke-width" : 2,"fill": "#000", "fill-opacity": 0});
+
 		//we will hide some refs in here... maybe use them for hovers, clicks etc?
 		poly.line_ref = line_ref;
 		poly.region_ref = region_ref;
 		poly.page_ref = page_ref;
 		poly.full_line_ref = "JB."+page_ref+"."+region_ref+"."+line_ref;
 		poly.line_index  = line;
-		poly.rec = self.get_poly_limits($(" > Coords",textLine).attr("points"));
-				
+		poly.rec = rec;
+
 		poly.mouseup(function(e){
 				
 			self.go_to_line(this, line);
@@ -1709,7 +1798,11 @@ function TSXTranscript( tsxDoc ){
 			self.log_action("Image clicked",self.get_line(), self.get_line_ref(), self.get_line_text());
 
 		});
-		tsxDoc.poly_set.push(poly.attr({"stroke":"none", "fill":"white", opacity: 0}));	
+//		tsxDoc.poly_set.push(poly.attr({"stroke":"none", "fill":"white", opacity: 0}));	
+		tsxDoc.poly_set.push(poly.attr({"stroke-width" : 2,"fill":"#000", opacity: 0}));	
+
+//		tsxDoc.poly_set.push(poly);	
+
 		return poly;
 	}
 	this.go_to_line = function(poly, line, current_override){
@@ -1749,7 +1842,7 @@ function TSXTranscript( tsxDoc ){
 
 		//unbind hover and set opacity for selected item
 		poly.unhover();
-		poly.attr({opacity:"0.35", stroke: "grey"});
+		poly.attr({opacity:"0.35", stroke: "#000"});
 		self.cm.addLineClass(line, "text", "tsx-line-selected");
 		self.current_line = line;
 	}
@@ -1761,6 +1854,7 @@ function TSXTranscript( tsxDoc ){
 			return 'L ' + x + ',' + y + ' ';
 		}).replace(/^L/, 'M') + " z"; // replace first L with M (moveTo)
 	}
+
 	this.get_poly_limits = function(coords){
 
 		var rec = {x: {max: 0, min: 1.7976931348623157E+10308}, y: {max: 0, min: 1.7976931348623157E+10308}};
@@ -1778,8 +1872,11 @@ function TSXTranscript( tsxDoc ){
 	this.get_full_line_ref = function(){
 		return self.polys[self.cm.getCursor().line].full_line_ref;
 	}
-	this.get_line_ref = function(){
-		return self.polys[self.cm.getCursor().line].line_ref;
+	this.get_line_ref = function(line_num){
+		if(line_num == undefined)
+			return self.polys[self.cm.getCursor().line].line_ref;
+		else
+			return self.polys[line_num].line_ref;
 	}
 	this.get_line = function(){
 		return self.cm.getCursor().line;
@@ -1787,7 +1884,10 @@ function TSXTranscript( tsxDoc ){
 	this.get_line_text = function(){		
 		return self.cm.lineInfo(self.cm.getCursor().line).text;
 	}
-	
+	this.get_region_ref = function(){
+		return self.polys[self.cm.getCursor().line].region_ref;
+	}
+
 	self.init();
 }
 
@@ -1876,6 +1976,7 @@ function TSXHTR( tsxTranscript ){
 		var line_start = false;
 		var lines = [];
 		var sug_words = [];
+
 		for(var i in sug_data.lines){
 			if(sug_data.lines[i].match(/^(#|"|\/\/\/)/)) continue;
 			var sug_array = sug_data.lines[i].split(/\s+/);
@@ -1902,8 +2003,6 @@ function TSXHTR( tsxTranscript ){
 						next_match.push(match_str);
 					}
 				}
-
-
 				//lines.push({words: words, line: line});
 				sug_words = [];
 			}
@@ -1913,7 +2012,7 @@ function TSXHTR( tsxTranscript ){
 			if(sug_array[3] === "<s>") line_start = true;
 					
 		}
-		console.log(lines);
+		//console.log(lines);
 /*
 		for(var i in sug.lines){
 		//	console.log(sug.lines[i]);
@@ -1950,6 +2049,33 @@ function TSXHTR( tsxTranscript ){
 			setTimeout(tsxTranscript.lock.unblockUI, 1000);
 		  	self.log_action('No Suggestions',self.get_line(), self.get_line_ref(), self.get_line_text());
 			return false;
+		}else{
+			matches.sort();
+			match_tree = [];
+			for(i in matches){
+				var match_words = matches[i].split(/\s+/);
+				var last_word = match_words[0];
+				var words = {};
+				for(j in match_words){
+					var word = match_words[j];
+					words[j] = word;
+					//first word
+					if(j==0){
+						if(match_tree[j] == undefined){ console.log("resseting 1st word oject"); match_tree[j] = {};}
+						match_tree[j][word] = {}; 
+						console.log("first word obj ",match_tree[j][word]);
+						continue;
+					}
+					//second word	
+					if(j==1){
+						console.log("match_tree["+(j-1)+"]["+words[j-1]+"]["+j+"]["+word+"]");
+						if(match_tree[0][words[0]][1] == undefined){ match_tree[0][words[0]][1] = {}; }
+						match_tree[0][words[0]][1][word] = {}; 
+						continue;
+					}
+				}
+			}
+			console.log("MATCHES: ",match_tree);
 		}
   		var inner = {from: cm.getCursor(), to: cm.getCursor(), list: matches};
 		if(sug_data.num_words != undefined)
@@ -2047,3 +2173,4 @@ function xmlToString(xmlData) {
     }
     return xmlString;
 }   
+
