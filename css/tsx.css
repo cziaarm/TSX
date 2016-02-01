@@ -132,4 +132,7 @@ div.popover-large { width: 600px; }
   }    .jumbotron   .btn {
             padding: 0.5em;
         }
-   
+  
+.tsx-doc-control {
+	margin-right: 100px;
+} 
