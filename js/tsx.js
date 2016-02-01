@@ -703,6 +703,7 @@ function TSXFiles( ){
 				node.state={opened: true, selected: true};
 			}
 			self.filetree.children[args.i].children.push(node);			
+			self.nrOfPages = data[i].nrOfPages;
 		}
 	//	console.log(self.filetree.children[args.i]);
 
@@ -820,8 +821,6 @@ function TSXDocument( ){
 		$("body").on('cookieUpdate', function(){ //check again after (homemade) event
 			self.update_state();
 		});
-
-
 	}
 	this.update_state = function(){
 
@@ -863,9 +862,20 @@ function TSXDocument( ){
 			self.init_viewer();
 			//self.i_lock.ublockUI();
 			self.tsxTranscript = new TSXTranscript(self);
+			self.init_docControl();
 		});
 	}
+	this.init_docControl = function(){
 
+		if((parseInt(self.page_ref)+1) <= 100) //TODO get number of pages in current doc
+			$(".tsx-doc-control").append('<a href="./transcribe#'+self.col_ref+'/'+self.doc_ref+'/'+(parseInt(self.page_ref)+1)+'" onclick="window.location.reload(true);"><button id="tsx-next" type="button" class="btn btn-primary navbar-btn pull-right" title="Go to next page"><span class="glyphicon glyphicon-arrow-right"></span></button></a>');
+		if((parseInt(self.page_ref)-1) > 0)
+			$(".tsx-doc-control").append('<a href="./transcribe#'+self.col_ref+'/'+self.doc_ref+'/'+(parseInt(self.page_ref)-1)+'" onclick="window.location.reload(true);"><button id="tsx-prev" type="button" class="btn btn-primary navbar-btn pull-right" title="Go to previous page"><span class="glyphicon glyphicon-arrow-left"></span></button>');
+
+			$(".tsx-doc-control").append('<a href="./desk#'+self.col_ref+'/'+self.doc_ref+'"><button id="tsx-prev" type="button" class="btn btn-primary navbar-btn pull-right" title="Go to desk "><span class="glyphicon glyphicon-arrow-up"></span></button>');
+
+
+	}
 	this.init_viewer = function(){
 			
 		//Make Raphael "paper" object
@@ -1202,6 +1212,7 @@ function TSXTranscript( tsxDoc ){
 			//store this stuff in the poly object
 			poly.text = raw_text_line;
 			poly.ref = line_ref; 
+	
 			//console.log("setting polys["+i+"] to ",poly);
 			self.polys[i]=poly;
 		});
@@ -1215,19 +1226,23 @@ function TSXTranscript( tsxDoc ){
 		self.cm.markClean();
 		
 		self.lock.unblockUI();
-		
+
+		//for parsing custom_attr
+		self.css_parser = new cssjs();
+		//to keep track of all the markedtext
+		self.marks=[];
+
 		//assign refs to cm line objects
 		var i=0;
 		self.cm.eachLine(function(cm_line){
-			cm_line.ref=self.polys[i].ref;
+			cm_line.ref=self.polys[i].ref;	
+			self.render_wysiwyg(self.polys[i].ref,i);
 			i++;
 		});	
 		
 		//as soon as we have some parsed transcript data we init HTR
 		self.tsxHTR = new TSXHTR(self);
 
-		//here to start with.... until I think of somewhere better
-		self.render_wysiwyg();
 
 		//set preview
 		self.render_preview();
@@ -1518,17 +1533,15 @@ function TSXTranscript( tsxDoc ){
 	
 	this.init_buttons = function(){
 		//not used
-		$("#tsx-suggest").on("click", function(){self.tsxHTR.get_HTR_data(undefined);});
-
+//		$("#tsx-suggest").on("click", function(){self.tsxHTR.get_HTR_data(undefined);});
 			$(".tsx-tei-insert").on("click",function(){	
 
 				var start_offset = self.cm.getCursor("from");
 				var end_offset = {line : self.cm.getCursor().line, ch: self.cm.getCursor().ch+1}; //we need to select a char
 				//add tei as custom tag in line
 				custom_attr = $("#"+self.get_line_ref(), self.xmlData).attr("custom");
-				console.log($("#"+self.get_line_ref(), self.xmlData));
+				var css = self.css_parser.parseCSS(custom_attr);
 
-				console.log("Current custom_attr: "+custom_attr);
 				//TODO This needs to be a less stringy procedure.
 				custom_attr != undefined ? custom_str = custom_attr +" "+ $(this).attr("id")+"{offset:"+start_offset.ch+";}" : custom_str=$(this).attr("id")+"{offset:"+start_offset.ch+";}";
 				$("#"+self.get_line_ref(), self.xmlData).attr("custom", custom_str);
@@ -1550,11 +1563,36 @@ function TSXTranscript( tsxDoc ){
 			});
 			//wrap TEI tags around selected content
 			$(".tsx-tei-wrap").on("click",function(){
-
+				var button = this;
 				var text = self.cm.getSelection();
 				var start_offset = self.cm.getCursor("from");
 				var end_offset = self.cm.getCursor("to");
-				var custom_attr = $("#"+self.get_line_ref()).attr("custom");
+				console.log("line ref: ",self.get_line_ref());
+				var custom_attr = $("#"+self.get_line_ref(), self.xmlData).attr("custom");
+				var css = self.css_parser.parseCSS(custom_attr);
+				
+				var removal = false;
+				//check markers for an exact match... and exact match is a toggle (ie clear marker)
+				var i=0;
+				$.each(self.marks, function(){
+					markerPos = this.find();
+					console.log(markerPos);
+					if(markerPos && 
+						markerPos.from.line == start_offset.line && markerPos.to.line == end_offset.line && 
+						markerPos.from.ch == start_offset.ch && markerPos.to.ch == end_offset.ch){
+						console.log("CLEAR");
+						//clear mark
+						this.clear();
+						//remove from self.marks
+						self.marks.splice(i,1);
+						//flag that this is a removal
+						removal = true;
+						//break
+						return;
+					}
+					i++;
+				})
+
 				if(start_offset.line != end_offset.line){ //multiline
 					for(var line = start_offset.line; line<=end_offset.line; line++){
 						s_off = 0;
@@ -1565,15 +1603,16 @@ function TSXTranscript( tsxDoc ){
 							e_off = end_offset.ch;
 
 						length = e_off - s_off;
+//						custom_attr != undefined ? custom_str = custom_attr +' '+ $(this).attr("id")+"{offset:"+s_off+"; length:"+length+";}" : custom_str=$(this).attr("id")+"{offset:"+s_off+"; length:"+length+";}";
 						
-						custom_attr != undefined ? custom_str = custom_attr + $(this).attr("id")+"{offset:"+s_off+"; length:"+length+";}" : custom_str=$(this).attr("id")+"{offset:"+s_off+"; length:"+length+";}";
-						
-						$("#"+self.get_line_ref(line), self.xmlData).attr("custom", custom_str);
+//						$("#"+self.get_line_ref(line), self.xmlData).attr("custom", custom_str);
 
-						console.log("added: ",custom_str+" to "+self.get_line_ref(line));
+//						console.log("added: ",custom_str+" to "+self.get_line_ref(line));
 
-//						console.log({line: line, ch: s_off}, {line: line, ch: e_off}, $(this).attr("id"));
-						self.cm.markText({line: line, ch: s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")});
+						console.log({line: line, ch: s_off}, {line: line, ch: e_off}, $(this).attr("id"));
+						if(!removal)
+							self.marks.push(self.cm.markText({line: line, ch: s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")}));
+/*
 						//first line only
 						if(line == start_offset.line){
 							if($(this).attr("id").match(/tsx-tei-p/)){
@@ -1588,22 +1627,56 @@ function TSXTranscript( tsxDoc ){
 							if($(this).attr("id").match(/tsx-tei-p/)){
 								self.cm.markText({line: line, ch:s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")+"-aft"});
 							}
-
 						}
-
+*/
 					}				
 
 				}else{
-					custom_attr != undefined ? custom_str = custom_attr + $(this).attr("id")+"{offset:"+start_offset.ch+"; length:"+text.length+";}" : custom_str=$(this).attr("id")+"{offset:"+start_offset.ch+"; length:"+text.length+";}";
+					//console.log(custom_attr);
+					if(removal){
+						//now we must also remove the custom_attr
+						var i=0;
+						$.each(css, function(){
+							if(this.selector === $(button).attr("id")){
+								var start_bip = false;
+								var end_bip = false;
+								$.each(this.rules, function(){
+									if(this.directive === 'offset' && this.value == start_offset.ch) start_bip = true;
+									if(this.directive === 'length' && this.value == text.length) end_bip = true;
 
-					$("#"+self.get_line_ref(), self.xmlData).attr("custom", custom_str);
-					console.log("added: ",custom_str+" to "+self.get_line_ref());
-					if($(this).attr("id").match(/tsx-tei-p/)){
-						self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")+"-fore"});
-						self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")+"-aft"});
+								});
+								//exact match for existing attr means we want to remove the attr
+								if(start_bip && end_bip){
+									css.splice(i,1);
+									return;
+								}
+							}
+							i++;
+						});
 					}else{
-						self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")});
+						if($(this).attr("id").match(/tsx-tei-p/)){
+							self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")+"-fore"});
+							self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")+"-aft"});
+						}else{
+							self.marks.push(self.cm.markText(start_offset, end_offset, {className: $(this).attr("id")}));
+						}
+						css.push({selector: $(this).attr("id"), rules:[
+										{directive: 'offset', value: start_offset.ch},
+										{directive: 'length', value: text.length} ] });
 					}
+					//now we make the custom_attr string back out of the css
+					var custom_str = "";
+					$.each(css, function(){
+						custom_str += this.selector+"{";
+						$.each(this.rules, function(){
+							custom_str += this.directive+":"+this.value+";";
+						});
+						custom_str += "} ";
+					});
+					
+					//console.log(custom_str);
+					$("#"+self.get_line_ref(), self.xmlData).attr("custom", custom_str);
+					
 				}
 				self.cm.focus();
 				self.log_action($(this).attr("id"),self.get_line(), self.get_line_ref(), self.get_line_text());
@@ -1656,70 +1729,26 @@ function TSXTranscript( tsxDoc ){
 			return false;
 		}
 	}
-	this.render_wysiwyg = function(){
-	//	console.log("Here");
-		$("#tsx-w-transcript-editor").height(50);
-/*		new Medium({
-                	element: document.getElementById('tsx-w-transcript-editor'),
-			mode: Medium.richMode
-            	});	*/
-
-/*		(function(){
-	var article = document.getElementById('rich_with_invoke_element'),
-		container = article.parentNode,
-	    medium = new Medium({
-	        element: article,
-	        mode: Medium.richMode,
-	        placeholder: 'Your Article',
-	        attributes: null,
-	        tags: null,
-		    pasteAsText: false
-	    });
-
-		article.highlight = function() {
-		if (document.activeElement !== article) {
-			medium.select();
-		}
-	};
-
-
-	container.querySelector('.bold').onmousedown = function() {
-		article.highlight();
-		medium.invokeElement('b', {
-		    title: "I'm bold!",
-		    style: "color: #66d9ef"
-	    });
-		return false;
-	};
-
-	container.querySelector('.underline').onmousedown = function() {
-		article.highlight();
-		medium.invokeElement('u', {
-			title: "I'm underlined!",
-			style: "color: #a6e22e"
+	this.render_wysiwyg = function(line_ref,line){
+//		$("#tsx-w-transcript-editor").height(50);
+		
+		var custom_attr = $("#"+line_ref, self.xmlData).attr("custom");
+		if(custom_attr === undefined) return;
+			
+		//initialize parser object
+		//parse css string
+		var css = self.css_parser.parseCSS(custom_attr);
+		var tei_present = false;
+		$.each(css, function(){
+			class_name = this.selector;
+			$.each(this.rules, function(){
+				if(this.directive == "offset"){ start_offset = {line: line, ch: parseInt(this.value)}; tei_present = true; }
+				if(this.directive == "length") end_offset = {line: line, ch: start_offset.ch+parseInt(this.value)};
+			});
+			if(tei_present)
+				self.marks.push(self.cm.markText(start_offset, end_offset, {className: class_name}));
 		});
-		return false;
-	};
 
-	container.querySelector('.italic').onmousedown = function() {
-		article.highlight();
-		medium.invokeElement('i', {
-			title: "I'm italics!",
-			style: "color: #f92672"
-		});
-		return false;
-	};
-
-	container.querySelector('.strike').onmousedown = function() {
-		article.highlight();
-		medium.invokeElement('strike', {
-			title: "I've been struck!",
-			style: "color: #e6db74"
-		});
-		return false;
-	};
-})();
-*/
 	}
 	this.render_preview = function(){
 		var tei = self.render_tei(self.cm.getDoc().getValue());	
