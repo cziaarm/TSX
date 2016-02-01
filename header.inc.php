@@ -24,11 +24,13 @@
 				<ul class="nav navbar-nav" id="tsx-salutation">
 				 <li><a href="./userarea"></a></li>
 				 </ul>
-
 	    <div class="tsx-logged-in"> 
 	   	<button type="button" class="btn btn-primary navbar-btn pull-right" id="tsx-sign-out">Sign out</button>
 		<!--<button type="button" class="btn btn-default navbar-btn pull-right" id="tsx-user-data">TSX user area</button>-->
 	    </div>
+	    <div class="tsx-doc-control"> 
+	    </div>
+
       </div>
     </nav>
 
