@@ -57,6 +57,7 @@ switch($knowthyself){
     <script src="<?php print $TSX_root; ?>/js/jquery.validate.min.js"></script>
     <script src="<?php print $TSX_root; ?>/js/jquery.cookie.js"></script>
 	<script src="<?php print $TSX_root; ?>/js/xml2json.js"></script>
+	<script src="<?php print $TSX_root; ?>/js/css.min.js"></script>
     <script src='https://www.google.com/recaptcha/api.js'></script> 
 
 <!-- GA -->
