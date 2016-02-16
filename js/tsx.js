@@ -709,7 +709,9 @@ function TSXFiles( ){
 
 		if((parseInt(args.i)+1) == self.filetree.children.length){
 			console.log("rendering filetree");
-			setTimeout(self.render_filetree(), 5000);
+			setTimeout(function(){self.render_filetree(); console.log("rendered filetree");}, 1000);
+			
+
 		}
 	}
 	this.render_filetree = function(){
