@@ -34,7 +34,7 @@ span.tsx-tei-note{border:1px solid #999}
 span.tsx-tei-hi{text-decoration:underline} 
 span.tsx-tei-foreign{border-bottom:2px dotted #0a0}
 span.tsx-tei-sic{border-bottom:2px dotted #aa0}
-span.tsx-tei-head{display:block;font-size:large}
+span.tsx-tei-head{display:inline;font-size:large;font-weight:bold;}
 span.tsx-tei-super{text-decoration:none;vertical-align:baseline;position:relative;top:-0.4em}
 
 span.tsx-tei-unclear{border-bottom:2px dotted #000}
