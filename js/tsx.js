@@ -77,6 +77,7 @@ function TSX(config){
 						buttons: [{label: 'OK',
 								action: function(dialogItself){
 									dialogItself.close();
+									window.location.href = "./";
 								}
 						}]		
 					});	
@@ -105,10 +106,11 @@ function TSX(config){
 
 	this.rest = function(url, data, callback, dataType, type, args, postfile){
 			
-		var params = {crossDomain: true, xhrFields: {withCredentials: true}};
+		var params = { crossDomain: true, xhrFields: {withCredentials: true}};
 		if(type != undefined) //default to GET
 			params.type = type;
-		if(dataType != undefined){ //let it guess if not set (Can't send contentType as the allow headers doesn't include contentType)
+		if(dataType != undefined){ 
+//let it guess if not set (Can't send contentType as the allow headers doesn't include contentType)
 //			params.dataType = dataType;
 //			switch(dataType){
 //				case "xml" : params.contentType = "text/xml; charset=utf-8"; break;
@@ -117,13 +119,21 @@ function TSX(config){
 		}
 		params.data = data;
 		if(postfile){
-//			console.log("Setting contentType to false",params.contentType);
 			params.processData = false;
 			params.contentType = false;
 		}
-//		if($.cookie("TSX_session") != undefined)
-//			params.data.JSESSIONID = $.cookie("TSX_session");
-		//console.log(url, params);
+
+		//TODO better to use feature detection as this fix could work for Safari also
+		//or even better get p3p header not to break Chrome/Firefox browsers so no need for any detection to that end...
+		// PK@UIBK to add p3p definition to apache Access-Control-Allow-Headers which is needed for IE anyway
+		var ua = window.navigator.userAgent;
+	        var msie = ua.indexOf("MSIE ");
+        	if (msie > 0) {
+			params.beforeSend = function(xhrObj){
+				xhrObj.setRequestHeader("p3p", 'CP="ALL IND DSP COR ADM CONo CUR CUSo IVAo IVDo PSA PSD TAI TELo OUR SAMo CNT COM INT NAV ONL PHY PRE PUR UNI"');
+			}			
+		}
+
 		$.ajax(url, params ).
 		done(function(data, textStatus, jqxhr){
 			if(callback != undefined)
@@ -138,6 +148,7 @@ function TSX(config){
 					buttons: [{label: 'OK',
                 					action: function(dialogItself){
                     						dialogItself.close();
+								window.location.href = "./";
                 					}
             				}]		
 				});	
@@ -616,7 +627,8 @@ function TSXUser( ){
 									dialogItself.close();
 									self.update_login_state();
 									$("body").trigger('cookieUpdate');
-
+									//Return user to "front page"
+									window.location.href = "./";
 								});
 							}
 						},
@@ -1573,30 +1585,16 @@ function TSXTranscript( tsxDoc ){
 				var custom_attr = $("#"+self.get_line_ref(), self.xmlData).attr("custom");
 				var css = self.css_parser.parseCSS(custom_attr);
 				
-				var removal = false;
-				//check markers for an exact match... and exact match is a toggle (ie clear marker)
-				var i=0;
-				$.each(self.marks, function(){
-					markerPos = this.find();
-					console.log(markerPos);
-					if(markerPos && 
-						markerPos.from.line == start_offset.line && markerPos.to.line == end_offset.line && 
-						markerPos.from.ch == start_offset.ch && markerPos.to.ch == end_offset.ch){
-						console.log("CLEAR");
-						//clear mark
-						this.clear();
-						//remove from self.marks
-						self.marks.splice(i,1);
-						//flag that this is a removal
-						removal = true;
-						//break
-						return;
-					}
-					i++;
-				})
 
 				if(start_offset.line != end_offset.line){ //multiline
+					var marks_to_remove = [];
+					var marks_to_add = [];
 					for(var line = start_offset.line; line<=end_offset.line; line++){
+			
+						//clean css_data for each line!
+						var custom_attr = $("#"+self.get_line_ref(line), self.xmlData).attr("custom");
+						var css = self.css_parser.parseCSS(custom_attr);
+
 						s_off = 0;
 						e_off = self.cm.lineInfo(line).text.length;
 						if(line == start_offset.line)//first line
@@ -1605,36 +1603,109 @@ function TSXTranscript( tsxDoc ){
 							e_off = end_offset.ch;
 
 						length = e_off - s_off;
-//						custom_attr != undefined ? custom_str = custom_attr +' '+ $(this).attr("id")+"{offset:"+s_off+"; length:"+length+";}" : custom_str=$(this).attr("id")+"{offset:"+s_off+"; length:"+length+";}";
+
+
+						var removal = false;
+						//check markers for an exact match... and exact match is a toggle (ie clear marker)
+						var i=0;
+						$.each(self.marks, function(){
+							markerPos = this.find();
+							if(markerPos){
+
+								if((markerPos.from.line == line && markerPos.from.ch == s_off) || 
+									(markerPos.to.line == line && markerPos.to.ch == e_off) ){
+										// we remove the marks later after custom_str update...
+										marks_to_remove.push(this);
+										//flag that this is a removal
+										removal = true;
+										//break
+									//	return;
+								}
+							}
+							i++;
+						});
 						
-//						$("#"+self.get_line_ref(line), self.xmlData).attr("custom", custom_str);
+						if(!removal){
+							var new_mark = self.cm.markText({line: line, ch: s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")});
+							marks_to_add.push(new_mark);
+							css.push ( {selector: $(this).attr("id"), rules:[
+									{directive: 'offset', value: s_off},
+									{directive: 'length', value: (e_off - s_off)} ] } );
 
-//						console.log("added: ",custom_str+" to "+self.get_line_ref(line));
 
-						console.log({line: line, ch: s_off}, {line: line, ch: e_off}, $(this).attr("id"));
-						if(!removal)
-							self.marks.push(self.cm.markText({line: line, ch: s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")}));
-/*
-						//first line only
-						if(line == start_offset.line){
-							if($(this).attr("id").match(/tsx-tei-p/)){
-								self.cm.markText({line: line, ch: s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")+"-fore"});
-							}
+						}else{
+							//now we must also remove the custom_attr
+							var i=0;
+							$.each(css, function(){
+								if(this.selector === $(button).attr("id")){
+									var start_bip = false;
+									var end_bip = false;
+									$.each(this.rules, function(){
+										if(this.directive === 'offset' && this.value == s_off) start_bip = true;
+										if(this.directive === 'length' && (this.value == (e_off - s_off) ) ) end_bip = true;
+									});
+									console.log("start_bip: ",start_bip," end_bip: ",end_bip);
+									//exact match for existing attr means we want to remove the attr
+									if(start_bip && end_bip){
+										css.splice(i,1);
+										return;
+									}
+								}
+								i++;
+							});
 						}
-						//last line only
-						if(line == end_offset.line){
-							if($(this).attr("id").match(/tsx-tei-unclear/)){
-								self.cm.markText({line: line, ch:s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")+"-aft"});
-							}
-							if($(this).attr("id").match(/tsx-tei-p/)){
-								self.cm.markText({line: line, ch:s_off}, {line: line, ch: e_off}, {className: $(this).attr("id")+"-aft"});
-							}
-						}
-*/
-					}				
+						//now we make the custom_attr string back out of the css
+						var custom_str = "";
+						$.each(css, function(){
+							custom_str += this.selector+"{";
+							$.each(this.rules, function(){
+								custom_str += this.directive+":"+this.value+";";
+							});
+							custom_str += "} ";
+						});	
+						console.log("CUSTOM_STR: ",custom_str);
+						$("#"+self.get_line_ref(line), self.xmlData).attr("custom", custom_str);
+					}//end multiline mark loop			
+
+					//now it is safe to remove or add the multi line marks from/to the global marks array
+					if(removal){
+						$.each(marks_to_remove,function(i){
+//							console.log("removing mark",i,this);
+							//clear mark
+							this.clear();
+							//remove from self.marks
+							self.marks.splice(i,1);
+						});
+					}else{
+						$.each(marks_to_add,function(i){
+							self.marks.push(this);
+						})
+
+					}
 
 				}else{
-					//console.log(custom_attr);
+					var removal = false;
+					//check markers for an exact match... and exact match is a toggle (ie clear marker)
+					var i=0;
+					$.each(self.marks, function(){
+						markerPos = this.find();
+						if(markerPos && 
+							markerPos.from.line == start_offset.line && markerPos.to.line == end_offset.line && 
+							markerPos.from.ch == start_offset.ch && markerPos.to.ch == end_offset.ch){
+
+							console.log("CLEAR");
+							//clear mark
+							this.clear();
+							//remove from self.marks
+							self.marks.splice(i,1);
+							//flag that this is a removal
+							removal = true;
+							//break
+							return;
+						}
+						i++;
+					})
+
 					if(removal){
 						//now we must also remove the custom_attr
 						var i=0;
@@ -1644,9 +1715,11 @@ function TSXTranscript( tsxDoc ){
 								var end_bip = false;
 								$.each(this.rules, function(){
 									if(this.directive === 'offset' && this.value == start_offset.ch) start_bip = true;
-									if(this.directive === 'length' && this.value == text.length) end_bip = true;
-
+									if(this.directive === 'length' && (this.value == text.length || 
+							//add case to catch when the encoded length takes us beyond the actual line end
+										(text.length + start_offset.ch)  == self.cm.lineInfo(end_offset.line).text.length)) end_bip = true;
 								});
+								console.log("start_bip: ",start_bip," end_bip: ",end_bip);
 								//exact match for existing attr means we want to remove the attr
 								if(start_bip && end_bip){
 									css.splice(i,1);
@@ -1676,7 +1749,7 @@ function TSXTranscript( tsxDoc ){
 						custom_str += "} ";
 					});
 					
-					//console.log(custom_str);
+					console.log("CUSTOM_STR: ",custom_str);
 					$("#"+self.get_line_ref(), self.xmlData).attr("custom", custom_str);
 					
 				}
