@@ -130,7 +130,7 @@ function TSX(config){
 	        var msie = ua.indexOf("MSIE ");
         	if (msie > 0) {
 			params.beforeSend = function(xhrObj){
-				xhrObj.setRequestHeader("p3p", 'CP="ALL IND DSP COR ADM CONo CUR CUSo IVAo IVDo PSA PSD TAI TELo OUR SAMo CNT COM INT NAV ONL PHY PRE PUR UNI"');
+				xhrObj.setRequestHeader("P3P", 'CP="ALL IND DSP COR ADM CONo CUR CUSo IVAo IVDo PSA PSD TAI TELo OUR SAMo CNT COM INT NAV ONL PHY PRE PUR UNI"');
 			}			
 		}
 
@@ -369,6 +369,42 @@ function TSXPage( ){
 		return str.capitalise();
 	}
 
+	this.load_recent_thumbnails = function(data,col_ref){
+		console.log("**",data);
+		//rubbish code alert
+		if(data.pageList == undefined){ //assume that means we've got an xml object
+			console.log(xml2json(data).replace(/undefined/,""));
+			var _pages = $.parseJSON(xml2json(data).replace(/undefined/,""));
+			if(_pages.trpPages == null) return false;	
+			var pages = _pages.trpPages.trpPage
+			//console.log(pages);
+		}else{
+			var pages = data.trpPages.trpPage;
+		}
+		
+		self.unload_thumbnails();	
+		for(var i in pages){
+			if(pages[i] == undefined) continue;
+			console.log("*",pages[i]);		
+			var thumb = '<div class="tsx-thumbbox col-sm-6 col-md-3">'+
+				'<a href="./transcribe#'+col_ref+'/'+pages[i].docId+'/'+pages[i].pageNr+'" class="thumbnail">'+
+					'<img src="'+pages[i].thumbUrl+'" alt="Tumbnail for '+pages[i].thumbUrl+'"/>';
+					if(pages[i].tsList != undefined)
+				/*	var latest = 0;
+					var latest_transcript;
+					for(var t in pages[i].tsList.transcripts){
+						if (pages[i].tsList.transcripts[t].timestamp > latest){
+							latest = pages[i].tsList.transcripts[t].timestamp;
+							latest_transcript = t;
+						}
+					}
+				*/	
+					thumb = thumb + ' <div class="caption">Page '+pages[i].pageNr+' ('+self.humanise(pages[i].pageId)+')</div>';
+				thumb = thumb + '</a>'+
+			'</div>';
+			$("#tsx-thumb-panel > .container-fluid > .row").append(thumb);
+		}
+	}
 
 	self.init();
 }
@@ -379,13 +415,14 @@ function TSXUser( ){
 
 	this.init = function() {
 	//self.load_xml(self.data_server+"/users_session.xml", self.handle_user);
-		console.log(self.name+" has been initialised");
+		//console.log(self.name+" **has been initialised");
 		self.update_login_state();
 		self.init_signin();
 		self.init_signup();
 		self.init_signout();
-		console.log(window.location.pathname);
-		if(window.location.pathname === "/userarea"){
+		//console.log(window.location.pathname);
+
+		if(window.location.pathname.match("/userarea")){
 			self.recent_activity();
 		}
 		
@@ -416,21 +453,33 @@ function TSXUser( ){
 	}
 	*/
 	this.recent_activity = function(){
-		console.log(self.userdata);
+		console.log("RECENT: ",self.userdata);
 		//might be an array, might be an object... sigh
-		var collections = self.userdata.collectionList.colList;
-		if(typeof self.userdata.collectionList.colList == "object")
-			collections = [ self.userdata.collectionList.colList];
+		$("#tsx-user-info").html(
+		"<ul>"+
+		"<li>"+self.userdata.firstname+" "+self.userdata.lastname+"</li>"+
+		"<li>"+self.userdata.email+"</li>"+
+		"</ul>"
+		)
+		self.load_json(self.data_server+"/collections/list", this._recent_activity);
+		
+	//	console.log(collections);
+
+	}
+	this._recent_activity = function(collections){
+
 		for(var i in collections){
-			
 			var col = collections[i];
 			console.log(col);
 			var url = self.data_server+"collections/"+col.colId+"/recent";
 			console.log(url);	
+			self.load_json(url, self.load_recent_thumbnails,col.colId);
+			//break;
 			//TODO make load_thumbnails more generic and promote it to TSXPage
-			self.load_json(url, self.load_thumbnails);
+			//self.load_json(url, self.load_thumbnails);
 		}
 	}
+
 	this.init_signin = function() {
 		$('#loginForm').validate({
 			rules: {

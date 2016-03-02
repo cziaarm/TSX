@@ -10,19 +10,21 @@ require("./head.inc.php");?>
    <div class="row">
   	<div class="col-md-9 col-md-push-3">
 	    <div class="panel panel-default">
-			<div class="panel-heading"><strong>TSX User area</strong></div>
-			<div class="panel-body">
-				 
-				
+			<div class="panel-heading"><strong>Recently edited pages</strong></div>
+			<div class="panel-body" id="tsx-thumb-panel">
+				<div class="container-fluid">
+					<div class="row">
+					</div>
+				</div>
 			</div>
 	    </div>
 	</div>
 
   	<div class="col-md-3 col-md-pull-9">
 	    <div class="panel panel-default">
-			<div class="panel-heading"><strong>Recent activity</strong></div>
-			<div class="panel-body">
-				Recent activity...
+			<div class="panel-heading"><strong>User Info</strong></div>
+			<div class="panel-body" id="tsx-user-info">
+				
 			</div>
 			</div>
 	</div>
