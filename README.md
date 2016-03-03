@@ -5,11 +5,15 @@ TSX is a web interface for transcription of digitised handwritten material "by t
 
 ###Pre-reququisites
 
-apache, php
+apache2, php
 
 ### Installation
 
 Clone this repository on to the docroot or sub-directory thereof on server.
+
+```
+git clone https://github.com/cziaarm/TSX.git
+```
 
 ### Brief overview of code
 
