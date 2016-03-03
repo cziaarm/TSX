@@ -3,6 +3,12 @@ Transcriptorium Crowd Sourcing Platform
 
 TSX is a web interface for transcription of digitised handwritten material "by the crowd". TSX was developed as part of the <a href="http://transcriptorium.eu/">tranScripotium project</a> and uses the <a href="https://transkribus.eu/Transkribus/">Transkribus</a> web servicces to manage transcripts and access digitised images and HTR tool outputs.
 
+A demonstrator of the platform was implemented as part of the tranScriptorium project in conjunction with the "Transcribe Bentham" platform.
+
+![Composite screen shots of TSX](/TSX_screen.png "TSX and Transcribe Bentham")
+
+http://www.transcribe-bentham.da.ulcc.ac.uk/TSX/
+
 ###Pre-reququisites
 
 apache2, php
